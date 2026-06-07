@@ -317,12 +317,12 @@
         </Style>
 
         <Style x:Key="TotpDigitBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-            <Setter Property="Width" Value="44" />
-            <Setter Property="Height" Value="50" />
-            <Setter Property="MinHeight" Value="50" />
+            <Setter Property="Height" Value="70" />
+            <Setter Property="MinHeight" Value="70" />
             <Setter Property="MaxLength" Value="1" />
+            <Setter Property="Margin" Value="4,0" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontSize" Value="30" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -781,38 +781,34 @@
                             <UniformGrid x:Name="LoginTotpDigitsPanel"
                                          Columns="6"
                                          Rows="1"
-                                         HorizontalAlignment="Left">
+                                         Width="424"
+                                         HorizontalAlignment="Center">
                                 <TextBox x:Name="TotpDigit1Input"
                                          Style="{StaticResource TotpDigitBox}"
-                                         Margin="0,0,8,0"
                                          PreviewTextInput="TotpDigit_PreviewTextInput"
                                          TextChanged="TotpDigit_TextChanged"
                                          PreviewKeyDown="TotpDigit_PreviewKeyDown"
                                          DataObject.Pasting="TotpDigit_Pasting" />
                                 <TextBox x:Name="TotpDigit2Input"
                                          Style="{StaticResource TotpDigitBox}"
-                                         Margin="0,0,8,0"
                                          PreviewTextInput="TotpDigit_PreviewTextInput"
                                          TextChanged="TotpDigit_TextChanged"
                                          PreviewKeyDown="TotpDigit_PreviewKeyDown"
                                          DataObject.Pasting="TotpDigit_Pasting" />
                                 <TextBox x:Name="TotpDigit3Input"
                                          Style="{StaticResource TotpDigitBox}"
-                                         Margin="0,0,8,0"
                                          PreviewTextInput="TotpDigit_PreviewTextInput"
                                          TextChanged="TotpDigit_TextChanged"
                                          PreviewKeyDown="TotpDigit_PreviewKeyDown"
                                          DataObject.Pasting="TotpDigit_Pasting" />
                                 <TextBox x:Name="TotpDigit4Input"
                                          Style="{StaticResource TotpDigitBox}"
-                                         Margin="0,0,8,0"
                                          PreviewTextInput="TotpDigit_PreviewTextInput"
                                          TextChanged="TotpDigit_TextChanged"
                                          PreviewKeyDown="TotpDigit_PreviewKeyDown"
                                          DataObject.Pasting="TotpDigit_Pasting" />
                                 <TextBox x:Name="TotpDigit5Input"
                                          Style="{StaticResource TotpDigitBox}"
-                                         Margin="0,0,8,0"
                                          PreviewTextInput="TotpDigit_PreviewTextInput"
                                          TextChanged="TotpDigit_TextChanged"
                                          PreviewKeyDown="TotpDigit_PreviewKeyDown"
@@ -837,63 +833,17 @@
                                        TextWrapping="Wrap"
                                        FontSize="12"
                                        Margin="0,12,0,0" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Row="2">
-                                    <StackPanel Orientation="Horizontal">
-                                <Button x:Name="VerifyTotpButton"
-                                        Style="{StaticResource PrimaryButton}"
-                                        MinWidth="116"
-                                        ToolTip="Verify AuthPolicy code"
-                                        Click="VerifyInlineTotpButton_Click">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Path Width="14"
-                                              Height="14"
-                                              Margin="0,0,8,0"
-                                              Stretch="Uniform"
-                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                              StrokeThickness="1.8"
-                                              StrokeStartLineCap="Round"
-                                              StrokeEndLineCap="Round"
-                                              StrokeLineJoin="Round"
-                                              Data="M5,12 L10,17 L20,7" />
-                                        <TextBlock Text="Verify"
-                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                   FontWeight="SemiBold" />
-                                    </StackPanel>
-                                </Button>
-
-                                <Button Margin="8,0,0,0"
-                                        MinWidth="96"
-                                        ToolTip="Cancel this unlock attempt"
-                                        Click="CancelInlineTotpButton_Click">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Path Width="14"
-                                              Height="14"
-                                              Margin="0,0,8,0"
-                                              Stretch="Uniform"
-                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                              StrokeThickness="1.8"
-                                              StrokeStartLineCap="Round"
-                                              StrokeEndLineCap="Round"
-                                              StrokeLineJoin="Round"
-                                              Data="M7,7 L17,17 M17,7 L7,17" />
-                                        <TextBlock Text="Cancel"
-                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
 
                             <Button x:Name="LoginRecoveryCodeToggleButton"
                                     Style="{StaticResource BareIconButton}"
                                     Width="220"
                                     Height="34"
-                                    HorizontalAlignment="Left"
-                                    Margin="0,18,0,0"
+                                    HorizontalAlignment="Center"
+                                    Margin="0,20,0,0"
                                     ToolTip="Switch between authenticator code and Recovery Code"
                                     Click="ToggleInlineRecoveryCodeButton_Click">
                                 <StackPanel Orientation="Horizontal"
-                                            HorizontalAlignment="Left">
+                                            HorizontalAlignment="Center">
                                     <Path Width="14"
                                           Height="14"
                                           Margin="0,0,8,0"
@@ -910,6 +860,31 @@
                                 </StackPanel>
                             </Button>
                                 </StackPanel>
+
+                                <Button Grid.Row="2"
+                                        Style="{StaticResource BareIconButton}"
+                                        Width="96"
+                                        Height="32"
+                                        HorizontalAlignment="Right"
+                                        ToolTip="Cancel this unlock attempt"
+                                        Click="CancelInlineTotpButton_Click">
+                                    <StackPanel Orientation="Horizontal"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center">
+                                        <Path Width="14"
+                                              Height="14"
+                                              Margin="0,0,8,0"
+                                              Stretch="Uniform"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              StrokeThickness="1.8"
+                                              StrokeStartLineCap="Round"
+                                              StrokeEndLineCap="Round"
+                                              StrokeLineJoin="Round"
+                                              Data="M7,7 L17,17 M17,7 L7,17" />
+                                        <TextBlock Text="Cancel"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    </StackPanel>
+                                </Button>
                             </Grid>
                         </Grid>
                     </Border>

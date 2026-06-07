@@ -1508,11 +1508,6 @@ public partial class MainWindow : Window
         ApplyInlineRecoveryCodeMode();
     }
 
-    private void VerifyInlineTotpButton_Click(object sender, RoutedEventArgs e)
-    {
-        VerifyInlineTotpCode();
-    }
-
     private void CancelInlineTotpButton_Click(object sender, RoutedEventArgs e)
     {
         CancelPendingInlineUnlock("Two-factor authentication cancelled.");
@@ -1686,7 +1681,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        VerifyTotpButton.IsEnabled = false;
         try
         {
             var result = _vault.VerifyAuthPolicyCode(code);
@@ -1716,13 +1710,6 @@ public partial class MainWindow : Window
         {
             ShowError("Two-factor verification failed.", ex);
             CancelPendingInlineUnlock("Two-factor verification failed. Unlock again.");
-        }
-        finally
-        {
-            if (VerifyTotpButton is not null)
-            {
-                VerifyTotpButton.IsEnabled = true;
-            }
         }
     }
 
