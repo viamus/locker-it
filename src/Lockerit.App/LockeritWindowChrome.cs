@@ -161,7 +161,7 @@ internal static class LockeritWindowChrome
                 Height = 12,
                 Stretch = Stretch.Uniform,
                 Fill = BrushFrom(Primary),
-                Data = Geometry.Parse("M7,10 L17,10 L17,19 L7,19 Z M9,10 L9,7 C9,4.8 10.8,3 13,3 C15.2,3 17,4.8 17,7 L17,10 L15,10 L15,7 C15,5.9 14.1,5 13,5 C11.9,5 11,5.9 11,7 L11,10 Z")
+                Data = Geometry.Parse("M12,2 C8.7,2 6,4.7 6,8 L6,10 L5,10 C3.9,10 3,10.9 3,12 L3,21 C3,22.1 3.9,23 5,23 L19,23 C20.1,23 21,22.1 21,21 L21,12 C21,10.9 20.1,10 19,10 L18,10 L18,8 C18,4.7 15.3,2 12,2 Z M8,10 L8,8 C8,5.8 9.8,4 12,4 C14.2,4 16,5.8 16,8 L16,10 Z")
             }
         };
     }

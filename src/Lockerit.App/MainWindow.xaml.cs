@@ -1021,15 +1021,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void ImportFileButton_Click(object sender, RoutedEventArgs e)
+    private void ImportFileButton_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            if (!await VerifySensitiveActionAsync("import an encrypted file"))
-            {
-                return;
-            }
-
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
                 CheckFileExists = true,
@@ -1658,7 +1653,6 @@ public partial class MainWindow : Window
         graphics.Clear(Drawing.Color.Transparent);
 
         using var background = new Drawing.SolidBrush(Drawing.Color.FromArgb(14, 15, 13));
-        using var surface = new Drawing.SolidBrush(Drawing.Color.FromArgb(32, 33, 30));
         using var primary = new Drawing.SolidBrush(Drawing.Color.FromArgb(217, 119, 87));
         using var primaryDark = new Drawing.SolidBrush(Drawing.Color.FromArgb(37, 28, 23));
         using var border = new Drawing.Pen(Drawing.Color.FromArgb(116, 69, 50), 2);
@@ -1667,16 +1661,11 @@ public partial class MainWindow : Window
         graphics.FillPath(background, outer);
         graphics.DrawPath(border, outer);
 
-        using var inner = RoundedRectangle(7, 7, 18, 18, 6);
-        graphics.FillPath(primaryDark, inner);
-        graphics.FillRectangle(primary, 11, 15, 10, 7);
-        using (var shackle = new Drawing.Pen(Drawing.Color.FromArgb(242, 239, 231), 2.2f))
-        {
-            graphics.DrawArc(shackle, 10, 9, 12, 13, 200, 140);
-        }
+        using var badge = RoundedRectangle(7, 7, 18, 18, 6);
+        graphics.FillPath(primaryDark, badge);
 
-        graphics.FillEllipse(surface, 14, 17, 4, 4);
-        graphics.FillRectangle(surface, 15, 20, 2, 3);
+        using var lockMark = CreateLockMarkPath(7, 7, 18);
+        graphics.FillPath(primary, lockMark);
 
         var handle = bitmap.GetHicon();
         try
@@ -1785,6 +1774,55 @@ public partial class MainWindow : Window
         path.AddArc(x, y + height - diameter, diameter, diameter, 90, 90);
         path.CloseFigure();
         return path;
+    }
+
+    private static Drawing.Drawing2D.GraphicsPath CreateLockMarkPath(float x, float y, float size)
+    {
+        var scale = size / 24f;
+        var path = new Drawing.Drawing2D.GraphicsPath(Drawing.Drawing2D.FillMode.Alternate);
+
+        void Line(float px, float py)
+        {
+            path.AddLine(CurrentPoint(path), Point(px, py));
+        }
+
+        path.StartFigure();
+        path.AddBezier(Point(12, 2), Point(8.7f, 2), Point(6, 4.7f), Point(6, 8));
+        Line(6, 10);
+        Line(5, 10);
+        path.AddBezier(CurrentPoint(path), Point(3.9f, 10), Point(3, 10.9f), Point(3, 12));
+        Line(3, 21);
+        path.AddBezier(CurrentPoint(path), Point(3, 22.1f), Point(3.9f, 23), Point(5, 23));
+        Line(19, 23);
+        path.AddBezier(CurrentPoint(path), Point(20.1f, 23), Point(21, 22.1f), Point(21, 21));
+        Line(21, 12);
+        path.AddBezier(CurrentPoint(path), Point(21, 10.9f), Point(20.1f, 10), Point(19, 10));
+        Line(18, 10);
+        Line(18, 8);
+        path.AddBezier(CurrentPoint(path), Point(18, 4.7f), Point(15.3f, 2), Point(12, 2));
+        path.CloseFigure();
+
+        path.StartFigure();
+        path.AddLine(Point(8, 10), Point(8, 8));
+        path.AddBezier(CurrentPoint(path), Point(8, 5.8f), Point(9.8f, 4), Point(12, 4));
+        path.AddBezier(CurrentPoint(path), Point(14.2f, 4), Point(16, 5.8f), Point(16, 8));
+        Line(16, 10);
+        path.CloseFigure();
+
+        using var transform = new Drawing.Drawing2D.Matrix(scale, 0, 0, scale, x, y);
+        path.Transform(transform);
+        return path;
+
+        Drawing.PointF Point(float px, float py)
+        {
+            return new Drawing.PointF(px, py);
+        }
+
+        static Drawing.PointF CurrentPoint(Drawing.Drawing2D.GraphicsPath graphicsPath)
+        {
+            var points = graphicsPath.PathPoints;
+            return points[^1];
+        }
     }
 
     private void ShowToast(string message)

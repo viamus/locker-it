@@ -471,13 +471,36 @@
                                        FontSize="12" />
 
                             <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                <Button Margin="0,0,8,0" Click="BrowseVaultPathButton_Click">
-                                    <TextBlock Text="Choose vault"
-                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <Button Style="{StaticResource IconButton}"
+                                        Width="38"
+                                        Height="38"
+                                        Margin="0,0,8,0"
+                                        ToolTip="Choose vault database"
+                                        Click="BrowseVaultPathButton_Click">
+                                    <Path Width="15"
+                                          Height="15"
+                                          Stretch="Uniform"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          StrokeThickness="1.8"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Data="M4,6 L10,6 L12,8 L20,8 L20,18 L4,18 Z M4,8 L20,8" />
                                 </Button>
-                                <Button Click="UseDefaultVaultPathButton_Click">
-                                    <TextBlock Text="Use default"
-                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <Button Style="{StaticResource IconButton}"
+                                        Width="38"
+                                        Height="38"
+                                        ToolTip="Use default vault path"
+                                        Click="UseDefaultVaultPathButton_Click">
+                                    <Path Width="15"
+                                          Height="15"
+                                          Stretch="Uniform"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          StrokeThickness="1.8"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Data="M5,12 C5,8.1 8.1,5 12,5 C14.1,5 16,5.9 17.3,7.3 L19,5 L19,11 L13,11 L15.6,8.4 C14.7,7.5 13.4,7 12,7 C9.2,7 7,9.2 7,12 C7,14.8 9.2,17 12,17 C13.9,17 15.6,15.9 16.5,14.3" />
                                 </Button>
                             </StackPanel>
 
@@ -617,10 +640,11 @@
                         <Popup x:Name="AccountPopup"
                                PlacementTarget="{Binding ElementName=AccountButton}"
                                Placement="Bottom"
+                               VerticalOffset="-4"
                                AllowsTransparency="True"
                                StaysOpen="False">
                             <Border Width="272"
-                                    Margin="0,8,0,0"
+                                    Margin="0,2,0,0"
                                     Background="{StaticResource SurfaceAltBrush}"
                                     BorderBrush="{StaticResource BorderBrushSoft}"
                                     BorderThickness="1"
