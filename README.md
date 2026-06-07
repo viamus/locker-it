@@ -1,8 +1,13 @@
 # LockerIt
 
+[![Build](https://github.com/viamus/locker-it/actions/workflows/build.yml/badge.svg)](https://github.com/viamus/locker-it/actions/workflows/build.yml)
+![Platform](https://img.shields.io/badge/platform-Windows%2011%2B-D97757)
+![.NET](https://img.shields.io/badge/.NET-10-512BD4)
+![License](https://img.shields.io/badge/license-MIT-65B891)
+
 LockerIt is a Windows-first, standalone encrypted vault for passwords and secure file attachments. It is intentionally local-first: no WebAPI, no cloud dependency, no background sync service, and no remote account model. The vault belongs to the Windows account that unlocks it.
 
-The project is built with .NET 10, WPF, SQLite, Windows DPAPI, Windows Hello/PIN/biometric consent, TOTP AuthPolicy gates, and AES-256-GCM encrypted payloads.
+The project targets Windows 11+ and is built with .NET 10, WPF, SQLite, Windows DPAPI, Windows Hello/PIN/biometric consent, TOTP AuthPolicy gates, and AES-256-GCM encrypted payloads.
 
 ## Why LockerIt Exists
 
@@ -248,12 +253,20 @@ The Recovery Kit uses PBKDF2-HMAC-SHA256 with a 256-bit random salt, 600,000 ite
 - [.docs/recovery.md](.docs/recovery.md) explains export, import, and keyring refresh flows.
 - [.docs/tooling.md](.docs/tooling.md) lists local developer commands, GitHub CLI metadata commands, and supply-chain controls.
 
+## Platform
+
+LockerIt is a Windows 11+ desktop application. The app targets `net10.0-windows10.0.22000.0` so Windows 11 APIs such as Windows Hello/PIN/biometric consent and DPAPI CurrentUser behavior are treated as first-class runtime assumptions.
+
 ## Build
 
+Use this as the canonical local build method:
+
 ```powershell
-dotnet restore Lockerit.slnx
-dotnet build Lockerit.slnx
+dotnet restore Lockerit.slnx --locked-mode
+dotnet build Lockerit.slnx --configuration Release --no-restore -p:ContinuousIntegrationBuild=true
 ```
+
+That matches the GitHub Actions build job before the core smoke test runs.
 
 ## Run
 
