@@ -3,6 +3,7 @@ using Lockerit.Core.Models;
 using Lockerit.Core.Security;
 using Lockerit.Core.Storage;
 using System.Security.Cryptography;
+using System.Text;
 
 var root = Path.Combine(Path.GetTempPath(), "Lockerit.SmokeTests", Guid.NewGuid().ToString("N"));
 var paths = LockeritPaths.ForRoot(root);
@@ -11,6 +12,7 @@ var recoveryPassphrase = "Correct horse battery 2026!";
 var masterPassword = "Local master password 2026!";
 Guid savedSecretId;
 Guid savedFileId;
+string totpSecretBase32 = string.Empty;
 
 try
 {
@@ -71,6 +73,38 @@ try
 
         var metadata = LockeritVault.ReadRecoveryKitMetadata(recoveryKitPath);
         Require(metadata.PassphraseHint == "horse phrase", "Recovery Kit hint mismatch.");
+
+        var enrollment = vault.CreateTotpEnrollment("smoke@example.com");
+        Require(enrollment.RecoveryCodes.Count == 10, "TOTP enrollment should create recovery codes.");
+        Require(enrollment.SetupUri.StartsWith("otpauth://totp/", StringComparison.Ordinal), "TOTP setup URI mismatch.");
+        RequireThrows<InvalidOperationException>(
+            () => vault.EnableTotp(enrollment, "not-a-code"),
+            "Invalid TOTP setup code should not enable AuthPolicy.");
+
+        var setupCode = TotpAuthenticator.GenerateCode(enrollment.SecretBase32, DateTimeOffset.UtcNow);
+        vault.EnableTotp(enrollment, setupCode);
+        totpSecretBase32 = enrollment.SecretBase32;
+
+        var authPolicy = vault.GetAuthPolicy();
+        Require(authPolicy.IsTotpEnabled, "TOTP should be enabled in AuthPolicy.");
+        Require(authPolicy.ActiveRecoveryCodeCount == 10, "AuthPolicy recovery code count mismatch.");
+        Require(!FileContains(paths.DatabasePath, Encoding.UTF8.GetBytes(enrollment.SecretBase32)), "Plain TOTP secret leaked into database bytes.");
+        Require(!FileContains(paths.DatabasePath + "-wal", Encoding.UTF8.GetBytes(enrollment.SecretBase32)), "Plain TOTP secret leaked into SQLite WAL bytes.");
+
+        Require(!vault.VerifyAuthPolicyCode("not-a-code").Verified, "Invalid AuthPolicy code should fail.");
+        var authResult = vault.VerifyAuthPolicyCode(setupCode);
+        Require(authResult.Verified && !authResult.UsedRecoveryCode, "Valid TOTP code should verify AuthPolicy.");
+
+        var usedRecoveryCode = enrollment.RecoveryCodes[0];
+        var recoveryCodeResult = vault.VerifyAuthPolicyCode(usedRecoveryCode);
+        Require(recoveryCodeResult.Verified && recoveryCodeResult.UsedRecoveryCode, "Recovery code should verify AuthPolicy once.");
+        Require(vault.GetAuthPolicy().ActiveRecoveryCodeCount == 9, "Used recovery code should be consumed.");
+        Require(!vault.VerifyAuthPolicyCode(usedRecoveryCode).Verified, "Used recovery code should not verify again.");
+
+        var regeneratedRecoveryCodes = vault.RegenerateRecoveryCodes();
+        Require(regeneratedRecoveryCodes.Count == 10, "Recovery code regeneration count mismatch.");
+        Require(vault.GetAuthPolicy().ActiveRecoveryCodeCount == 10, "Regenerated recovery codes should all be active.");
+        Require(!vault.VerifyAuthPolicyCode(usedRecoveryCode).Verified, "Old recovery code should not verify after regeneration.");
     }
 
     using (var reopenedVault = LockeritVault.UnlockWithCurrentWindowsUser(paths))
@@ -78,6 +112,9 @@ try
         Require(!reopenedVault.CreatedNewKey, "Reopening the same vault should reuse the protected key.");
         Require(reopenedVault.ListPasswords().Single().Id == savedSecretId, "Reopened vault should contain the saved secret.");
         Require(reopenedVault.ListFileAttachments().Single().Id == savedFileId, "Reopened vault should contain the saved file.");
+        Require(reopenedVault.GetAuthPolicy().IsTotpEnabled, "AuthPolicy should persist after reopening the vault.");
+        var reopenedCode = TotpAuthenticator.GenerateCode(totpSecretBase32, DateTimeOffset.UtcNow);
+        Require(reopenedVault.VerifyAuthPolicyCode(reopenedCode).Verified, "Persisted AuthPolicy should accept a valid TOTP code.");
     }
 
     File.Delete(paths.KeyFilePath);
@@ -102,6 +139,8 @@ try
         Require(recovered.Password.Length == 0, "Recovered list summary should not include password.");
         Require(recoveredVault.GetPassword(savedSecretId).Password == "UltraSecretPassword!42", "Recovered secret password mismatch.");
         Require(recoveredVault.GetFileAttachment(savedFileId).Content.Length > 0, "Recovered file missing content.");
+        Require(recoveredVault.GetAuthPolicy().IsTotpEnabled, "AuthPolicy should move with the recovered vault database.");
+        Require(recoveredVault.VerifyAuthPolicyCode(TotpAuthenticator.GenerateCode(totpSecretBase32, DateTimeOffset.UtcNow)).Verified, "Recovered AuthPolicy should accept TOTP.");
 
         recoveredVault.EnableMasterPasswordForCurrentUser(masterPassword);
     }
@@ -117,6 +156,8 @@ try
     using (var masterVault = LockeritVault.UnlockWithCurrentWindowsUser(paths, masterPassword))
     {
         Require(masterVault.KeyProtectionMode == KeyProtectionMode.WindowsUserWithMasterPassword, "Master password mode not detected.");
+        masterVault.DisableTotp();
+        Require(!masterVault.GetAuthPolicy().IsTotpEnabled, "TOTP should be disabled.");
         masterVault.DisableMasterPasswordForCurrentUser();
         masterVault.DeletePassword(savedSecretId);
         masterVault.DeleteFileAttachment(savedFileId);

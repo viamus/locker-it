@@ -34,6 +34,7 @@ LockerIt should feel:
 | No WebAPI | The app must not require a remote API to store or unlock local secrets. |
 | No plaintext storage | Secret payloads must be encrypted before SQLite writes. |
 | Windows account boundary | Daily unlock belongs to the current Windows account. |
+| Local AuthPolicy | Extra authentication gates should remain local and encrypted with the vault. |
 | Explicit recovery | Cross-device unlock requires a Recovery Kit and passphrase. |
 | No accidental key reset | Existing encrypted databases must not silently receive a new random key. |
 | Dark UI | The product is dark-first and should not ship a white default surface. |
@@ -63,6 +64,8 @@ journey
       Create new local keyring: 5: App
     section Harden locally
       Enable master password: 4: User
+      Enable authenticator app: 4: User
+      Save recovery codes: 5: User
       Authorize sensitive action: 5: User
       Auto-lock idle session: 5: App
 ```

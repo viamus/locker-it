@@ -125,6 +125,15 @@ public partial class MainWindow : Window
 
             var paths = ResolveVaultPaths();
             _vault = UnlockVaultWithMasterPasswordIfRequired(paths);
+            if (!CompleteAdditionalAuthentication("unlock"))
+            {
+                _vault.Dispose();
+                _vault = null;
+                UnlockButton.IsEnabled = true;
+                SetUnlockedState(isUnlocked: false);
+                SetStatus("Two-factor authentication cancelled.");
+                return;
+            }
 
             LoginSurface.Visibility = Visibility.Collapsed;
             ShellSurface.Visibility = Visibility.Visible;
@@ -421,6 +430,108 @@ public partial class MainWindow : Window
         {
             ShowError("Master password removal failed.", ex);
             SetStatus("Master password removal failed.");
+        }
+    }
+
+    private async void EnableTotpButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var vault = EnsureVault();
+            var existingPolicy = vault.GetAuthPolicy();
+            if (!await VerifySensitiveSettingsActionAsync(
+                    existingPolicy.IsTotpEnabled
+                        ? "replace two-factor authentication"
+                        : "enable two-factor authentication",
+                    requireCurrentAuthPolicy: existingPolicy.IsTotpEnabled))
+            {
+                return;
+            }
+
+            var enrollment = vault.CreateTotpEnrollment(_account.DisplayName);
+            var verificationCode = TotpEnrollmentDialog.ShowForSetup(this, enrollment);
+            if (verificationCode is null)
+            {
+                SetStatus("Two-factor setup cancelled.");
+                return;
+            }
+
+            vault.EnableTotp(enrollment, verificationCode);
+            RecoveryCodesDialog.ShowCodes(this, enrollment.RecoveryCodes);
+            ApplyAuthPolicyStatus();
+            SetStatus("Two-factor authentication enabled.");
+        }
+        catch (Exception ex)
+        {
+            ShowError("Two-factor setup failed.", ex);
+            SetStatus("Two-factor setup failed.");
+        }
+    }
+
+    private async void DisableTotpButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (!await VerifySensitiveSettingsActionAsync("disable two-factor authentication", requireCurrentAuthPolicy: true))
+            {
+                return;
+            }
+
+            var result = System.Windows.MessageBox.Show(
+                this,
+                "Disable authenticator app verification for this vault?",
+                "Lockerit",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes)
+            {
+                SetStatus("Two-factor disable cancelled.");
+                return;
+            }
+
+            EnsureVault().DisableTotp();
+            ApplyAuthPolicyStatus();
+            SetStatus("Two-factor authentication disabled.");
+        }
+        catch (Exception ex)
+        {
+            ShowError("Two-factor disable failed.", ex);
+            SetStatus("Two-factor disable failed.");
+        }
+    }
+
+    private async void RegenerateRecoveryCodesButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (!await VerifySensitiveSettingsActionAsync("regenerate recovery codes", requireCurrentAuthPolicy: true))
+            {
+                return;
+            }
+
+            var result = System.Windows.MessageBox.Show(
+                this,
+                "Regenerate recovery codes? Existing unused codes will stop working.",
+                "Lockerit",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes)
+            {
+                SetStatus("Recovery code regeneration cancelled.");
+                return;
+            }
+
+            var recoveryCodes = EnsureVault().RegenerateRecoveryCodes();
+            RecoveryCodesDialog.ShowCodes(this, recoveryCodes);
+            ApplyAuthPolicyStatus();
+            SetStatus("Recovery codes regenerated.");
+        }
+        catch (Exception ex)
+        {
+            ShowError("Recovery code regeneration failed.", ex);
+            SetStatus("Recovery code regeneration failed.");
         }
     }
 
@@ -1095,6 +1206,7 @@ public partial class MainWindow : Window
 
         ApplyUnlockDiagnostics();
         ApplyMasterPasswordStatus();
+        ApplyAuthPolicyStatus();
         ApplyNavigationState();
     }
 
@@ -1235,6 +1347,46 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ApplyAuthPolicyStatus()
+    {
+        if (TotpStatusText is null)
+        {
+            return;
+        }
+
+        if (_vault is null)
+        {
+            TotpStatusText.Text = "Unlock the vault to manage AuthPolicy and two-factor authentication.";
+            if (DisableTotpButton is not null)
+            {
+                DisableTotpButton.IsEnabled = false;
+            }
+
+            if (RegenerateRecoveryCodesButton is not null)
+            {
+                RegenerateRecoveryCodesButton.IsEnabled = false;
+            }
+
+            return;
+        }
+
+        var policy = _vault.GetAuthPolicy();
+        var enabled = policy.IsTotpEnabled;
+        TotpStatusText.Text = enabled
+            ? $"Enabled. AuthPolicy requires Windows authorization and an authenticator code before the vault opens. Recovery codes remaining: {policy.ActiveRecoveryCodeCount}."
+            : "Disabled. AuthPolicy currently relies on Windows authorization, plus master password if enabled.";
+
+        if (DisableTotpButton is not null)
+        {
+            DisableTotpButton.IsEnabled = enabled;
+        }
+
+        if (RegenerateRecoveryCodesButton is not null)
+        {
+            RegenerateRecoveryCodesButton.IsEnabled = enabled;
+        }
+    }
+
     private void SaveLanguage(string languageCode)
     {
         _settings = _settings with { LanguageCode = languageCode };
@@ -1294,6 +1446,55 @@ public partial class MainWindow : Window
         return false;
     }
 
+    private async Task<bool> VerifySensitiveSettingsActionAsync(string action, bool requireCurrentAuthPolicy)
+    {
+        if (!await VerifySensitiveActionAsync(action))
+        {
+            return false;
+        }
+
+        if (!requireCurrentAuthPolicy)
+        {
+            return true;
+        }
+
+        return CompleteAdditionalAuthentication(action);
+    }
+
+    private bool CompleteAdditionalAuthentication(string action)
+    {
+        var vault = EnsureVault();
+        var policy = vault.GetAuthPolicy();
+        if (!policy.RequiresAdditionalFactor)
+        {
+            return true;
+        }
+
+        for (var attempt = 1; attempt <= 3; attempt++)
+        {
+            var code = TotpUnlockDialog.ShowForUnlock(this, policy.ActiveRecoveryCodeCount);
+            if (code is null)
+            {
+                SetStatus($"Two-factor authorization cancelled for {action}.");
+                return false;
+            }
+
+            var result = vault.VerifyAuthPolicyCode(code);
+            if (result.Verified)
+            {
+                ApplyAuthPolicyStatus();
+                SetStatus(result.Message);
+                return true;
+            }
+
+            ShowWarning("Two-factor authorization failed.", result.Message);
+            policy = vault.GetAuthPolicy();
+        }
+
+        SetStatus($"Two-factor authorization failed for {action}.");
+        return false;
+    }
+
     private void AutoLockTimer_Tick(object? sender, EventArgs e)
     {
         if (_vault is null)
@@ -1321,6 +1522,15 @@ public partial class MainWindow : Window
     {
         _vault?.Dispose();
         _vault = LockeritVault.UnlockWithCurrentWindowsUser(paths);
+        if (!CompleteAdditionalAuthentication("unlock after Recovery Kit import"))
+        {
+            _vault.Dispose();
+            _vault = null;
+            UnlockButton.IsEnabled = true;
+            SetUnlockedState(isUnlocked: false);
+            SetStatus("Two-factor authentication cancelled.");
+            return;
+        }
 
         LoginSurface.Visibility = Visibility.Collapsed;
         ShellSurface.Visibility = Visibility.Visible;

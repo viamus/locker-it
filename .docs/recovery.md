@@ -11,6 +11,7 @@ LockerIt recovery is designed for cross-device use without copying the Windows D
 | Recovery Kit | Yes | No | Stores an encrypted copy of the vault master key. |
 | Recovery passphrase | User memory or separate secret store | N/A | Unlocks the Recovery Kit. |
 | Recovery passphrase hint | Yes | No | Optional non-secret reminder stored in the Recovery Kit metadata. |
+| AuthPolicy recovery codes | User-managed separate copy | No | One-time fallback codes for the TOTP gate after the vault key is opened. |
 
 ## Export Flow
 
@@ -58,6 +59,8 @@ sequenceDiagram
 
 Import validates that the recovered key can open the selected vault before writing the local keyring. If validation fails, the local keyring is not updated.
 
+If the copied vault database has AuthPolicy TOTP enabled, the imported vault still requires an authenticator code or an unused AuthPolicy recovery code after the Recovery Kit creates the local keyring. The Recovery Kit restores key access; it does not bypass AuthPolicy.
+
 ## Local Keyring Refresh
 
 Settings includes a refresh action that re-saves the current unlocked vault master key into the current Windows account's keyring. If master password mode is enabled, refresh re-wraps the keyring with a new master password.
@@ -92,7 +95,8 @@ flowchart TD
 3. Store the recovery passphrase separately from both files.
 4. Test import on a non-production copy before relying on it.
 5. Add a non-secret hint if it helps remember the passphrase.
-6. Refresh the Recovery Kit after major vault/key policy changes.
+6. Store AuthPolicy recovery codes separately if TOTP is enabled.
+7. Refresh the Recovery Kit after major vault/key policy changes.
 
 ## Failure Cases
 
@@ -104,3 +108,4 @@ flowchart TD
 | Existing local keyring | UI asks for confirmation before replacing it. |
 | Forgotten recovery passphrase | The hint can help, and an already-unlocked source device can export a new kit. Without either, LockerIt cannot recover it by design. |
 | Master password enabled and forgotten | Import a Recovery Kit or use an already-unlocked source device to reset the local keyring. |
+| Authenticator app unavailable | Use an unused AuthPolicy recovery code, then regenerate codes or replace TOTP from Settings. |

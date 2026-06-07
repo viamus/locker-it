@@ -1392,6 +1392,77 @@
                                                TextWrapping="Wrap"
                                                Margin="0,10,0,0" />
 
+                                    <TextBlock Text="AuthPolicy"
+                                               FontSize="18"
+                                               FontWeight="SemiBold"
+                                               Margin="0,32,0,0" />
+                                    <TextBlock Text="Two-factor authentication" Style="{StaticResource FieldLabel}" />
+                                    <TextBlock Foreground="{StaticResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Text="Requires an authenticator app code after Windows authorization before the vault workspace opens. Recovery codes can unlock the vault once if the authenticator is unavailable." />
+                                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                        <Button x:Name="EnableTotpButton"
+                                                ToolTip="Enable or replace authenticator app verification for this vault"
+                                                Click="EnableTotpButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Width="14"
+                                                      Height="14"
+                                                      Margin="0,0,8,0"
+                                                      Stretch="Uniform"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                      StrokeThickness="1.8"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Data="M12,3 L19,6 L19,11 C19,15.7 16.2,19.6 12,21 C7.8,19.6 5,15.7 5,11 L5,6 Z M9,12 L11,14 L15.5,9.5" />
+                                                <TextBlock Text="Enable / replace"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button x:Name="RegenerateRecoveryCodesButton"
+                                                Margin="8,0,0,0"
+                                                ToolTip="Create new one-time recovery codes and invalidate old unused codes"
+                                                Click="RegenerateRecoveryCodesButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Width="14"
+                                                      Height="14"
+                                                      Margin="0,0,8,0"
+                                                      Stretch="Uniform"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                      StrokeThickness="1.8"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Data="M5,12 C5,8.1 8.1,5 12,5 C14.2,5 16.2,6 17.5,7.5 M19,5 L19,9 L15,9 M19,12 C19,15.9 15.9,19 12,19 C9.8,19 7.8,18 6.5,16.5 M5,19 L5,15 L9,15" />
+                                                <TextBlock Text="New recovery codes"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button x:Name="DisableTotpButton"
+                                                Margin="8,0,0,0"
+                                                ToolTip="Disable authenticator app verification for this vault"
+                                                Click="DisableTotpButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Width="14"
+                                                      Height="14"
+                                                      Margin="0,0,8,0"
+                                                      Stretch="Uniform"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                      StrokeThickness="1.8"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Data="M6,7 L18,7 M9,7 L9,5 L15,5 L15,7 M8,9 L9,19 L17,19 L18,9" />
+                                                <TextBlock Text="Disable"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                    <TextBlock x:Name="TotpStatusText"
+                                               Foreground="{StaticResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,10,0,0" />
+
                                     <TextBlock Text="Recovery"
                                                FontSize="18"
                                                FontWeight="SemiBold"
