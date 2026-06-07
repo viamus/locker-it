@@ -101,7 +101,7 @@ internal sealed class RecoveryCodesDialog : Window
         actions.Children.Add(doneButton);
 
         stack.Children.Add(actions);
-        Content = root;
+        LockeritWindowChrome.Install(this, root, canResize: false);
     }
 
     public static void ShowCodes(Window owner, IReadOnlyList<string> codes)

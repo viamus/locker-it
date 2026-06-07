@@ -97,7 +97,7 @@ internal sealed class MasterPasswordDialog : Window
         actions.Children.Add(primaryButton);
 
         stack.Children.Add(actions);
-        Content = root;
+        LockeritWindowChrome.Install(this, root, canResize: false);
 
         Loaded += (_, _) => _passwordInput.Focus();
     }

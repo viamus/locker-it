@@ -1,0 +1,259 @@
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Shapes;
+using System.Windows.Shell;
+using WpfBrush = System.Windows.Media.Brush;
+using WpfBrushes = System.Windows.Media.Brushes;
+using WpfButton = System.Windows.Controls.Button;
+using WpfColor = System.Windows.Media.Color;
+using WpfColorConverter = System.Windows.Media.ColorConverter;
+using WpfCursors = System.Windows.Input.Cursors;
+using WpfFontFamily = System.Windows.Media.FontFamily;
+using WpfHorizontalAlignment = System.Windows.HorizontalAlignment;
+using WpfOrientation = System.Windows.Controls.Orientation;
+using WpfBinding = System.Windows.Data.Binding;
+
+namespace Lockerit.App;
+
+internal static class LockeritWindowChrome
+{
+    private const string AppBackground = "#0E0F0D";
+    private const string BorderSoft = "#34352F";
+    private const string Ink = "#F2EFE7";
+    private const string Muted = "#A9A39A";
+    private const string Primary = "#D97757";
+    private const string PrimaryHover = "#251C17";
+
+    public static void Install(Window window, UIElement body, bool canResize)
+    {
+        if (ReferenceEquals(window.Content, body))
+        {
+            window.Content = null;
+        }
+
+        window.WindowStyle = WindowStyle.None;
+        window.AllowsTransparency = false;
+        window.ResizeMode = canResize ? ResizeMode.CanResize : ResizeMode.NoResize;
+        window.Background = BrushFrom(AppBackground);
+        window.Foreground = BrushFrom(Ink);
+        window.FontFamily = new WpfFontFamily("Segoe UI");
+        window.SnapsToDevicePixels = true;
+        WindowChrome.SetWindowChrome(
+            window,
+            new WindowChrome
+            {
+                CaptionHeight = 0,
+                CornerRadius = new CornerRadius(0),
+                GlassFrameThickness = new Thickness(0),
+                ResizeBorderThickness = canResize ? new Thickness(6) : new Thickness(0),
+                UseAeroCaptionButtons = false
+            });
+
+        var frame = new Border
+        {
+            Background = BrushFrom(AppBackground),
+            BorderBrush = BrushFrom(BorderSoft),
+            BorderThickness = new Thickness(1),
+            SnapsToDevicePixels = true
+        };
+
+        var shell = new Grid();
+        shell.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        shell.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        shell.Children.Add(CreateTitleBar(window, canResize));
+        Grid.SetRow(body, 1);
+        shell.Children.Add(body);
+
+        frame.Child = shell;
+        window.Content = frame;
+    }
+
+    private static Grid CreateTitleBar(Window window, bool canResize)
+    {
+        var titleBar = new Grid
+        {
+            Height = 42,
+            Background = BrushFrom(AppBackground),
+            Cursor = WpfCursors.SizeAll
+        };
+        titleBar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        titleBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        titleBar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        titleBar.MouseLeftButtonDown += (_, e) =>
+        {
+            if (e.ChangedButton != MouseButton.Left)
+            {
+                return;
+            }
+
+            if (e.ClickCount == 2 && canResize)
+            {
+                ToggleMaximize(window);
+                return;
+            }
+
+            try
+            {
+                window.DragMove();
+            }
+            catch (InvalidOperationException)
+            {
+                // DragMove can throw if Windows has already ended the mouse gesture.
+            }
+        };
+
+        var brand = new StackPanel
+        {
+            Orientation = WpfOrientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(14, 0, 0, 0),
+            IsHitTestVisible = false
+        };
+        brand.Children.Add(CreateMark());
+        brand.Children.Add(new TextBlock
+        {
+            Text = string.IsNullOrWhiteSpace(window.Title) ? "Lockerit" : window.Title,
+            Foreground = BrushFrom(Ink),
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(9, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        titleBar.Children.Add(brand);
+
+        var controls = new StackPanel
+        {
+            Orientation = WpfOrientation.Horizontal,
+            HorizontalAlignment = WpfHorizontalAlignment.Right
+        };
+        Grid.SetColumn(controls, 2);
+
+        controls.Children.Add(CreateTitleButton("Minimize", "M5,12 L19,12", BrushFrom(Ink), (_, _) => window.WindowState = WindowState.Minimized));
+
+        var maximizeButton = CreateTitleButton("Maximize", "M6,6 L18,6 L18,18 L6,18 Z", BrushFrom(Ink), (_, _) => ToggleMaximize(window));
+        maximizeButton.IsEnabled = canResize;
+        controls.Children.Add(maximizeButton);
+
+        controls.Children.Add(CreateTitleButton("Close", "M7,7 L17,17 M17,7 L7,17", BrushFrom(Primary), (_, _) => window.Close(), isClose: true));
+        titleBar.Children.Add(controls);
+
+        return titleBar;
+    }
+
+    private static FrameworkElement CreateMark()
+    {
+        return new Border
+        {
+            Width = 24,
+            Height = 24,
+            Background = BrushFrom(PrimaryHover),
+            BorderBrush = BrushFrom("#6B3B2B"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(7),
+            Child = new Path
+            {
+                Width = 12,
+                Height = 12,
+                Stretch = Stretch.Uniform,
+                Fill = BrushFrom(Primary),
+                Data = Geometry.Parse("M7,10 L17,10 L17,19 L7,19 Z M9,10 L9,7 C9,4.8 10.8,3 13,3 C15.2,3 17,4.8 17,7 L17,10 L15,10 L15,7 C15,5.9 14.1,5 13,5 C11.9,5 11,5.9 11,7 L11,10 Z")
+            }
+        };
+    }
+
+    private static WpfButton CreateTitleButton(
+        string tooltip,
+        string geometry,
+        WpfBrush foreground,
+        RoutedEventHandler click,
+        bool isClose = false)
+    {
+        var button = new WpfButton
+        {
+            Width = 42,
+            Height = 42,
+            MinWidth = 42,
+            MinHeight = 42,
+            Padding = new Thickness(0),
+            Background = WpfBrushes.Transparent,
+            BorderBrush = WpfBrushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Foreground = foreground,
+            Cursor = WpfCursors.Hand,
+            ToolTip = tooltip,
+            Template = CreateTitleButtonTemplate(isClose)
+        };
+
+        var icon = new Path
+        {
+            Width = 12,
+            Height = 12,
+            Data = Geometry.Parse(geometry),
+            Stretch = Stretch.Uniform,
+            StrokeThickness = 1.8,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            StrokeLineJoin = PenLineJoin.Round
+        };
+        icon.SetBinding(Shape.StrokeProperty, new WpfBinding(nameof(WpfButton.Foreground))
+        {
+            RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor, typeof(WpfButton), 1)
+        });
+
+        button.Content = icon;
+        button.Click += click;
+        return button;
+    }
+
+    private static ControlTemplate CreateTitleButtonTemplate(bool isClose)
+    {
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.Name = "Chrome";
+        border.SetValue(Border.BackgroundProperty, WpfBrushes.Transparent);
+        border.SetValue(Border.BorderThicknessProperty, new Thickness(0));
+
+        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+        presenter.SetValue(FrameworkElement.HorizontalAlignmentProperty, WpfHorizontalAlignment.Center);
+        presenter.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+        border.AppendChild(presenter);
+
+        var template = new ControlTemplate(typeof(WpfButton))
+        {
+            VisualTree = border
+        };
+
+        var hover = new Trigger
+        {
+            Property = UIElement.IsMouseOverProperty,
+            Value = true
+        };
+        hover.Setters.Add(new Setter(Border.BackgroundProperty, BrushFrom(isClose ? PrimaryHover : "#20211E"), "Chrome"));
+        template.Triggers.Add(hover);
+
+        var disabled = new Trigger
+        {
+            Property = UIElement.IsEnabledProperty,
+            Value = false
+        };
+        disabled.Setters.Add(new Setter(UIElement.OpacityProperty, 0.35));
+        template.Triggers.Add(disabled);
+
+        return template;
+    }
+
+    private static void ToggleMaximize(Window window)
+    {
+        window.WindowState = window.WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+    }
+
+    internal static SolidColorBrush BrushFrom(string color)
+    {
+        return new SolidColorBrush((WpfColor)WpfColorConverter.ConvertFromString(color));
+    }
+}

@@ -49,6 +49,11 @@ public partial class MainWindow : Window
         _account = WindowsAccountContext.Current();
 
         InitializeComponent();
+        if (Content is UIElement shellContent)
+        {
+            LockeritWindowChrome.Install(this, shellContent, canResize: true);
+        }
+
         _isComponentReady = true;
 
         PasswordList.ItemsSource = _passwords;
@@ -394,7 +399,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var result = System.Windows.MessageBox.Show(
+            var result = LockeritMessageDialog.Show(
                 this,
                 "Remove the LockerIt master password from this local keyring? Windows account protection will remain enabled.",
                 "Lockerit",
@@ -463,7 +468,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var result = System.Windows.MessageBox.Show(
+            var result = LockeritMessageDialog.Show(
                 this,
                 "Disable authenticator app verification for this vault?",
                 "Lockerit",
@@ -496,7 +501,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var result = System.Windows.MessageBox.Show(
+            var result = LockeritMessageDialog.Show(
                 this,
                 "Regenerate recovery codes? Existing unused codes will stop working.",
                 "Lockerit",
@@ -987,7 +992,7 @@ public partial class MainWindow : Window
 
     private void DeleteSecret(PasswordSecret secret)
     {
-        var result = System.Windows.MessageBox.Show(
+        var result = LockeritMessageDialog.Show(
             this,
             $"Delete \"{secret.Title}\"?",
             "Lockerit",
@@ -1193,7 +1198,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var result = System.Windows.MessageBox.Show(
+        var result = LockeritMessageDialog.Show(
             this,
             $"Delete \"{file.FileName}\" from the encrypted vault?",
             "Lockerit",
@@ -1579,7 +1584,7 @@ public partial class MainWindow : Window
 
     private bool ConfirmReplaceLocalKeyring(LockeritPaths paths)
     {
-        var result = System.Windows.MessageBox.Show(
+        var result = LockeritMessageDialog.Show(
             this,
             $"Replace the local Windows keyring for {_account.DisplayName}?\n\nVault: {paths.DatabasePath}\nKeyring: {paths.KeyFilePath}\n\nThis does not import another Windows user. It only stores the recovered vault key for the currently signed-in Windows account.",
             "Lockerit Recovery",
@@ -1870,7 +1875,7 @@ public partial class MainWindow : Window
 
     private void ShowError(string title, Exception exception)
     {
-        System.Windows.MessageBox.Show(
+        LockeritMessageDialog.Show(
             this,
             exception.Message,
             title,
@@ -1880,7 +1885,7 @@ public partial class MainWindow : Window
 
     private void ShowWarning(string title, string message)
     {
-        System.Windows.MessageBox.Show(
+        LockeritMessageDialog.Show(
             this,
             message,
             title,
