@@ -22,7 +22,7 @@ flowchart TB
         FilesView["Encrypted files workspace"]
         DocumentationView["Documentation workspace"]
         RecoveryDialog["Recovery passphrase dialog"]
-        MasterDialog["Master password dialog"]
+        LegacyMaster["Legacy master-password migration"]
         TotpDialogs["TOTP and recovery code dialogs"]
         WindowsDialog["Windows password fallback dialog"]
         Tray["NotifyIcon tray integration"]
@@ -56,7 +56,7 @@ flowchart TB
     DocumentationView --> MainWindow
     AccountMenu --> MainWindow
     RecoveryDialog --> Facade
-    MasterDialog --> Facade
+    LegacyMaster --> Facade
     TotpDialogs --> Facade
     WindowsDialog --> MainWindow
     Tray --> MainWindow
@@ -84,7 +84,7 @@ flowchart TB
 | `Lockerit.App` | UI shell | Windows, input, dialogs, tray icon, settings screen, status messages. |
 | `Lockerit.Core` | Vault engine | Key handling, encryption, SQLite repository, recovery import/export, AuthPolicy/TOTP, local QR matrix generation, encrypted file attachment payloads. |
 | SQLite database | Local storage | Durable encrypted item payloads and item metadata. |
-| DPAPI keyring | Windows user profile | Day-to-day protection of the vault master key for the current Windows account. Can be upgraded to DPAPI plus master password mode. |
+| DPAPI keyring | Windows user profile | Day-to-day protection of the vault master key for the current Windows account. Legacy master-password keyrings can be unlocked and migrated back to Windows + AuthPolicy protection. |
 | Recovery Kit | User-managed portable file | Cross-device encrypted copy of the vault master key. |
 | AuthPolicy | Encrypted vault item | Optional TOTP requirement and hashed recovery codes that move with the vault database. |
 | File attachments | Vault payloads | Binary file content encrypted as typed vault items and exported only after user action. |
@@ -141,7 +141,7 @@ The current app uses:
 - password table with row actions;
 - modal editor for create/edit;
 - Settings recovery actions;
-- Settings master password actions;
+- legacy master-password migration during unlock;
 - Settings AuthPolicy actions for TOTP QR setup, enable, disable, replace and recovery-code regeneration;
 - tray icon for hide/show/lock behavior.
 

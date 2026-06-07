@@ -120,7 +120,7 @@ internal sealed class RecoveryPassphraseDialog : Window
         actions.Children.Add(primaryButton);
 
         stack.Children.Add(actions);
-        Content = root;
+        LockeritWindowChrome.Install(this, root, canResize: false);
 
         Loaded += (_, _) => _passphraseInput.Focus();
     }

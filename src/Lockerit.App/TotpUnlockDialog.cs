@@ -91,7 +91,7 @@ internal sealed class TotpUnlockDialog : Window
         actions.Children.Add(verifyButton);
 
         stack.Children.Add(actions);
-        Content = root;
+        LockeritWindowChrome.Install(this, root, canResize: false);
 
         Loaded += (_, _) => _codeInput.Focus();
     }

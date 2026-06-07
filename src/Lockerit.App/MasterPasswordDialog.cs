@@ -12,20 +12,14 @@ namespace Lockerit.App;
 internal sealed class MasterPasswordDialog : Window
 {
     private readonly PasswordBox _passwordInput = new();
-    private readonly PasswordBox? _confirmInput;
     private readonly TextBlock _validationText = new();
-    private readonly bool _requiresConfirmation;
 
     private MasterPasswordDialog(
         string title,
         string heading,
         string description,
-        string primaryAction,
-        bool requiresConfirmation)
+        string primaryAction)
     {
-        _requiresConfirmation = requiresConfirmation;
-        _confirmInput = requiresConfirmation ? new PasswordBox() : null;
-
         Title = title;
         Width = 440;
         SizeToContent = SizeToContent.Height;
@@ -66,13 +60,6 @@ internal sealed class MasterPasswordDialog : Window
         ConfigurePasswordBox(_passwordInput);
         stack.Children.Add(_passwordInput);
 
-        if (_confirmInput is not null)
-        {
-            stack.Children.Add(CreateLabel("Confirm master password"));
-            ConfigurePasswordBox(_confirmInput);
-            stack.Children.Add(_confirmInput);
-        }
-
         _validationText.Foreground = BrushFrom("#E06A5F");
         _validationText.FontSize = 12;
         _validationText.TextWrapping = TextWrapping.Wrap;
@@ -97,7 +84,7 @@ internal sealed class MasterPasswordDialog : Window
         actions.Children.Add(primaryButton);
 
         stack.Children.Add(actions);
-        Content = root;
+        LockeritWindowChrome.Install(this, root, canResize: false);
 
         Loaded += (_, _) => _passwordInput.Focus();
     }
@@ -109,24 +96,8 @@ internal sealed class MasterPasswordDialog : Window
         var dialog = new MasterPasswordDialog(
             "Master Password",
             "Master password required",
-            "Windows authorized this account. Enter the LockerIt master password to open the local keyring.",
-            "Unlock",
-            requiresConfirmation: false)
-        {
-            Owner = owner
-        };
-
-        return dialog.ShowDialog() == true ? dialog.MasterPassword : null;
-    }
-
-    public static string? ShowForSetup(Window owner)
-    {
-        var dialog = new MasterPasswordDialog(
-            "Set Master Password",
-            "Set master password",
-            "Add a second local factor after Windows authorization. Losing this password requires Recovery Kit import or an already-unlocked source device.",
-            "Save",
-            requiresConfirmation: true)
+            "This vault uses a legacy master-password keyring. Enter it once to unlock and migrate this PC back to Windows + AuthPolicy protection.",
+            "Unlock")
         {
             Owner = owner
         };
@@ -137,10 +108,6 @@ internal sealed class MasterPasswordDialog : Window
     protected override void OnClosed(EventArgs e)
     {
         _passwordInput.Password = string.Empty;
-        if (_confirmInput is not null)
-        {
-            _confirmInput.Password = string.Empty;
-        }
 
         if (DialogResult != true)
         {
@@ -157,13 +124,6 @@ internal sealed class MasterPasswordDialog : Window
         {
             _validationText.Text = "Use at least 12 characters for the master password.";
             _passwordInput.Focus();
-            return;
-        }
-
-        if (_confirmInput is not null && !string.Equals(masterPassword, _confirmInput.Password, StringComparison.Ordinal))
-        {
-            _validationText.Text = "The master passwords do not match.";
-            _confirmInput.Focus();
             return;
         }
 

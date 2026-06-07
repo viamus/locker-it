@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using Lockerit.App;
 using Lockerit.Core.Security;
 
 namespace Lockerit.App.Security;
@@ -14,11 +15,9 @@ internal sealed class WindowsPasswordDialog : Window
     {
         Title = "Unlock Lockerit";
         Width = 420;
-        Height = 286;
+        SizeToContent = SizeToContent.Height;
         MinWidth = 420;
-        MinHeight = 286;
         MaxWidth = 420;
-        MaxHeight = 286;
         ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = BrushFrom("#0E0F0D");
@@ -107,7 +106,7 @@ internal sealed class WindowsPasswordDialog : Window
         panel.Children.Add(actions);
         panel.Children.Add(content);
         root.Child = panel;
-        Content = root;
+        LockeritWindowChrome.Install(this, root, canResize: false);
 
         Loaded += (_, _) => _passwordBox.Focus();
     }

@@ -69,7 +69,7 @@ internal sealed class TotpEnrollmentDialog : Window
         stack.Children.Add(_validationText);
 
         stack.Children.Add(CreateActions("Enable 2FA", ConfirmButton_Click));
-        Content = root;
+        LockeritWindowChrome.Install(this, root, canResize: false);
 
         Loaded += (_, _) => _codeInput.Focus();
     }

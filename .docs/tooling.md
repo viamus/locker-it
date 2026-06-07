@@ -43,7 +43,7 @@ flowchart TB
 
     Security --> Hello["Windows Hello/PIN/biometric"]
     Security --> Dpapi["DPAPI keyring"]
-    Security --> Master["Optional master password"]
+    Security --> LegacyMaster["Legacy master-password migration"]
     Security --> Policy["Encrypted AuthPolicy"]
     Security --> Aes["AES-GCM payload encryption"]
     Security --> AutoLock["Auto-lock"]
@@ -61,7 +61,11 @@ flowchart TB
 | .NET 10 SDK | Build, run, and test. |
 | Git | Source control. |
 | GitHub CLI | Repository metadata, branch publishing, and pull requests. |
-| Windows 11 | Primary runtime target for Windows Hello/PIN/biometric integration. |
+| Windows 11+ | Primary runtime target for Windows Hello/PIN/biometric integration. |
+
+## Supported Platform
+
+LockerIt is a Windows 11+ desktop application. The app target framework is `net10.0-windows10.0.22000.0`, matching the first Windows 11 SDK contract version used by the WPF project.
 
 ## GitHub Actions
 
@@ -79,9 +83,11 @@ flowchart LR
 
 ## Build Commands
 
+Canonical local build, matching CI:
+
 ```powershell
-dotnet restore Lockerit.slnx
-dotnet build Lockerit.slnx
+dotnet restore Lockerit.slnx --locked-mode
+dotnet build Lockerit.slnx --configuration Release --no-restore -p:ContinuousIntegrationBuild=true
 ```
 
 ## Run Command
@@ -119,8 +125,9 @@ gh repo edit viamus/locker-it `
 
 ```powershell
 git switch -c codex/<short-topic>
-dotnet build Lockerit.slnx
-dotnet run --project tests/Lockerit.Core.SmokeTests/Lockerit.Core.SmokeTests.csproj
+dotnet restore Lockerit.slnx --locked-mode
+dotnet build Lockerit.slnx --configuration Release --no-restore -p:ContinuousIntegrationBuild=true
+dotnet run --configuration Release --no-build --project tests/Lockerit.Core.SmokeTests/Lockerit.Core.SmokeTests.csproj
 git add .
 git commit -m "<message>"
 git push -u origin codex/<short-topic>
@@ -146,8 +153,9 @@ Run:
 ```powershell
 git status --short --branch
 git diff --check
-dotnet build Lockerit.slnx
-dotnet run --project tests/Lockerit.Core.SmokeTests/Lockerit.Core.SmokeTests.csproj
+dotnet restore Lockerit.slnx --locked-mode
+dotnet build Lockerit.slnx --configuration Release --no-restore -p:ContinuousIntegrationBuild=true
+dotnet run --configuration Release --no-build --project tests/Lockerit.Core.SmokeTests/Lockerit.Core.SmokeTests.csproj
 ```
 
 Check that no runtime vault data is staged:
