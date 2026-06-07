@@ -27,6 +27,7 @@ public partial class MainWindow : Window
 
     private readonly ObservableCollection<PasswordSecret> _passwords = [];
     private readonly ObservableCollection<VaultFileAttachment> _files = [];
+    private readonly ObservableCollection<DocumentationItem> _documentationItems = [];
     private readonly List<PasswordSecret> _allPasswords = [];
     private readonly List<VaultFileAttachment> _allFiles = [];
     private readonly AppSettingsStore _settingsStore = new();
@@ -52,6 +53,7 @@ public partial class MainWindow : Window
 
         PasswordList.ItemsSource = _passwords;
         FileList.ItemsSource = _files;
+        DocumentationList.ItemsSource = _documentationItems;
         UnlockWindowsUserText.Text = _account.DisplayName;
         var accountInitials = GetAccountInitials(_account.DisplayName);
         AccountInitialsText.Text = accountInitials;
@@ -64,6 +66,7 @@ public partial class MainWindow : Window
         _autoLockTimer.Tick += AutoLockTimer_Tick;
 
         ConfigureTrayIcon();
+        LoadDocumentationIndex();
         ApplySettingsToUi();
         ClearForm();
         SetUnlockedState(isUnlocked: false);
@@ -197,23 +200,6 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             ShowError("Could not open the vault folder.", ex);
-        }
-    }
-
-    private void OpenReadmeMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var readme = FindRepositoryFile("README.md");
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = readme,
-                UseShellExecute = true
-            });
-        }
-        catch (Exception ex)
-        {
-            ShowError("Could not open README.", ex);
         }
     }
 
@@ -624,6 +610,26 @@ public partial class MainWindow : Window
         ApplyPasswordFilter();
     }
 
+    private void FileSearchInput_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_isComponentReady)
+        {
+            return;
+        }
+
+        ApplyFileFilter();
+    }
+
+    private void FileCategoryFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_isComponentReady)
+        {
+            return;
+        }
+
+        ApplyFileFilter();
+    }
+
     private void AccountButton_Click(object sender, RoutedEventArgs e)
     {
         AccountPopup.IsOpen = true;
@@ -677,6 +683,20 @@ public partial class MainWindow : Window
         SetStatus("Settings workspace.");
     }
 
+    private void DocumentationNavButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_vault is null)
+        {
+            ShellSurface.Visibility = Visibility.Collapsed;
+            LoginSurface.Visibility = Visibility.Visible;
+            SetStatus("Unlock the vault first.");
+            return;
+        }
+
+        ShowDocumentationContent();
+        SetStatus("Documentation workspace.");
+    }
+
     private void LoadPasswords(Guid? selectId = null)
     {
         var vault = EnsureVault();
@@ -705,6 +725,43 @@ public partial class MainWindow : Window
         foreach (var file in vault.ListFileAttachments())
         {
             _allFiles.Add(file);
+        }
+
+        ApplyFileFilter();
+    }
+
+    private void ApplyFileFilter()
+    {
+        if (!_isComponentReady ||
+            FileCountText is null ||
+            EmptyFilesPanel is null ||
+            FileList is null)
+        {
+            return;
+        }
+
+        var query = FileSearchInput?.Text?.Trim();
+        var category = GetSelectedFileCategoryFilter();
+        var filtered = _allFiles.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            filtered = filtered.Where(file =>
+                Contains(file.FileName, query) ||
+                Contains(file.Category, query) ||
+                Contains(file.ContentType, query) ||
+                Contains(file.Size.ToString(System.Globalization.CultureInfo.CurrentCulture), query));
+        }
+
+        if (!string.Equals(category, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            filtered = filtered.Where(file =>
+                string.Equals(NormalizeCategory(file.Category), category, StringComparison.OrdinalIgnoreCase));
+        }
+
+        _files.Clear();
+        foreach (var file in filtered.ToList())
+        {
             _files.Add(file);
         }
 
@@ -716,6 +773,95 @@ public partial class MainWindow : Window
         if (EmptyFilesPanel is not null)
         {
             EmptyFilesPanel.Visibility = _files.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        if (EmptyFilesTitleText is not null && EmptyFilesDescriptionText is not null)
+        {
+            var hasAnyFiles = _allFiles.Count > 0;
+            EmptyFilesTitleText.Text = hasAnyFiles ? "No matching files" : "No files yet";
+            EmptyFilesDescriptionText.Text = hasAnyFiles
+                ? "Adjust search or category filters to find encrypted files."
+                : "Import a file to encrypt it inside the local vault.";
+        }
+    }
+
+    private void LoadDocumentationIndex()
+    {
+        _documentationItems.Clear();
+
+        try
+        {
+            var root = FindRepositoryRoot();
+            AddDocumentationItem(root, "README.md", "Overview", "Product purpose, capabilities and setup.");
+            AddDocumentationItem(root, Path.Combine(".docs", "README.md"), "Documentation Map", "How LockerIt documentation is organized.");
+            AddDocumentationItem(root, Path.Combine(".docs", "product-purpose.md"), "Product Purpose", "Promise, personality and non-negotiables.");
+            AddDocumentationItem(root, Path.Combine(".docs", "architecture.md"), "Architecture", "App, core, storage and UI boundaries.");
+            AddDocumentationItem(root, Path.Combine(".docs", "security-model.md"), "Security Model", "Threat model, encryption and residual risk.");
+            AddDocumentationItem(root, Path.Combine(".docs", "recovery.md"), "Recovery", "Recovery Kit and cross-device behavior.");
+            AddDocumentationItem(root, Path.Combine(".docs", "tooling.md"), "Tooling", "Build, validation and project tooling.");
+            AddDocumentationItem(root, "CONTRIBUTING.md", "Contributing", "Contribution and security review guidance.");
+            AddDocumentationItem(root, "LICENSE", "License", "MIT license terms.");
+
+            DocumentationStatusText.Text = _documentationItems.Count == 1
+                ? "1 local document"
+                : $"{_documentationItems.Count} local documents";
+
+            if (_documentationItems.Count > 0)
+            {
+                DocumentationList.SelectedIndex = 0;
+            }
+            else
+            {
+                DocumentationTitleText.Text = "No documentation found";
+                DocumentationPathText.Text = string.Empty;
+                DocumentationViewer.Text = "LockerIt documentation files were not found beside this build.";
+            }
+        }
+        catch (Exception ex)
+        {
+            DocumentationStatusText.Text = "Documentation unavailable.";
+            DocumentationTitleText.Text = "Documentation unavailable";
+            DocumentationPathText.Text = string.Empty;
+            DocumentationViewer.Text = ex.Message;
+        }
+    }
+
+    private void AddDocumentationItem(string root, string relativePath, string title, string description)
+    {
+        var fullPath = Path.Combine(root, relativePath);
+        if (!File.Exists(fullPath))
+        {
+            return;
+        }
+
+        _documentationItems.Add(new DocumentationItem(
+            title,
+            description,
+            relativePath.Replace('\\', '/'),
+            fullPath));
+    }
+
+    private void DocumentationList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DocumentationList.SelectedItem is not DocumentationItem item)
+        {
+            return;
+        }
+
+        try
+        {
+            DocumentationTitleText.Text = item.Title;
+            DocumentationPathText.Text = item.RelativePath;
+            DocumentationViewer.Text = File.ReadAllText(item.FullPath);
+            DocumentationViewer.ScrollToHome();
+            SetStatus($"Documentation opened: {item.Title}.");
+        }
+        catch (Exception ex)
+        {
+            DocumentationTitleText.Text = item.Title;
+            DocumentationPathText.Text = item.RelativePath;
+            DocumentationViewer.Text = ex.Message;
+            SetStatus("Documentation could not be opened.");
         }
     }
 
@@ -1129,6 +1275,8 @@ public partial class MainWindow : Window
         PasswordList.SelectedItem = null;
         SearchInput.Text = string.Empty;
         CategoryFilterComboBox.SelectedIndex = 0;
+        FileSearchInput.Text = string.Empty;
+        FileCategoryFilterComboBox.SelectedIndex = 0;
         ClearForm();
         CloseEntryModal();
         AccountPopup.IsOpen = false;
@@ -1212,7 +1360,7 @@ public partial class MainWindow : Window
 
     private void ApplyNavigationState()
     {
-        if (VaultNavButton is null || FilesNavButton is null || SettingsNavButton is null || VaultContent is null || FilesContent is null || SettingsContent is null)
+        if (VaultNavButton is null || FilesNavButton is null || DocumentationNavButton is null || SettingsNavButton is null || VaultContent is null || FilesContent is null || DocumentationContent is null || SettingsContent is null)
         {
             return;
         }
@@ -1220,6 +1368,7 @@ public partial class MainWindow : Window
         var isVault = VaultContent.Visibility == Visibility.Visible;
         ApplyNavButtonState(VaultNavButton, isVault);
         ApplyNavButtonState(FilesNavButton, FilesContent.Visibility == Visibility.Visible);
+        ApplyNavButtonState(DocumentationNavButton, DocumentationContent.Visibility == Visibility.Visible);
         ApplyNavButtonState(SettingsNavButton, SettingsContent.Visibility == Visibility.Visible);
     }
 
@@ -1237,6 +1386,7 @@ public partial class MainWindow : Window
         AccountPopup.IsOpen = false;
         VaultContent.Visibility = Visibility.Visible;
         FilesContent.Visibility = Visibility.Collapsed;
+        DocumentationContent.Visibility = Visibility.Collapsed;
         SettingsContent.Visibility = Visibility.Collapsed;
         ApplyNavigationState();
     }
@@ -1247,6 +1397,18 @@ public partial class MainWindow : Window
         CloseEntryModal();
         VaultContent.Visibility = Visibility.Collapsed;
         FilesContent.Visibility = Visibility.Visible;
+        DocumentationContent.Visibility = Visibility.Collapsed;
+        SettingsContent.Visibility = Visibility.Collapsed;
+        ApplyNavigationState();
+    }
+
+    private void ShowDocumentationContent()
+    {
+        AccountPopup.IsOpen = false;
+        CloseEntryModal();
+        VaultContent.Visibility = Visibility.Collapsed;
+        FilesContent.Visibility = Visibility.Collapsed;
+        DocumentationContent.Visibility = Visibility.Visible;
         SettingsContent.Visibility = Visibility.Collapsed;
         ApplyNavigationState();
     }
@@ -1257,6 +1419,7 @@ public partial class MainWindow : Window
         CloseEntryModal();
         VaultContent.Visibility = Visibility.Collapsed;
         FilesContent.Visibility = Visibility.Collapsed;
+        DocumentationContent.Visibility = Visibility.Collapsed;
         SettingsContent.Visibility = Visibility.Visible;
         ApplyNavigationState();
     }
@@ -1743,6 +1906,13 @@ public partial class MainWindow : Window
             : "All";
     }
 
+    private string GetSelectedFileCategoryFilter()
+    {
+        return FileCategoryFilterComboBox?.SelectedItem is ComboBoxItem item
+            ? item.Tag?.ToString() ?? "All"
+            : "All";
+    }
+
     private string GetSelectedEntryCategory()
     {
         return CategoryInput?.SelectedItem is ComboBoxItem item
@@ -1791,21 +1961,27 @@ public partial class MainWindow : Window
         return parts.Length == 0 ? "U" : new string(parts);
     }
 
-    private static string FindRepositoryFile(string fileName)
+    private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
 
         while (directory is not null)
         {
-            var candidate = Path.Combine(directory.FullName, fileName);
-            if (File.Exists(candidate))
+            var candidate = Path.Combine(directory.FullName, "README.md");
+            if (File.Exists(candidate) && Directory.Exists(Path.Combine(directory.FullName, ".docs")))
             {
-                return candidate;
+                return directory.FullName;
             }
 
             directory = directory.Parent;
         }
 
-        return Path.GetFullPath(fileName);
+        return Directory.GetCurrentDirectory();
     }
 }
+
+internal sealed record DocumentationItem(
+    string Title,
+    string Description,
+    string RelativePath,
+    string FullPath);

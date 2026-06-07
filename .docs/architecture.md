@@ -20,6 +20,7 @@ flowchart TB
         AccountMenu["Account menu"]
         EntryModal["Password entry modal"]
         FilesView["Encrypted files workspace"]
+        DocumentationView["Documentation workspace"]
         RecoveryDialog["Recovery passphrase dialog"]
         MasterDialog["Master password dialog"]
         TotpDialogs["TOTP and recovery code dialogs"]
@@ -52,6 +53,7 @@ flowchart TB
     MainWindow --> Facade
     EntryModal --> MainWindow
     FilesView --> MainWindow
+    DocumentationView --> MainWindow
     AccountMenu --> MainWindow
     RecoveryDialog --> Facade
     MasterDialog --> Facade
@@ -132,8 +134,9 @@ The current app uses:
 
 - focused unlock screen with no sidebar;
 - dark workspace shell;
-- sidebar navigation for Passwords and Settings;
-- Files workspace for encrypted attachments;
+- sidebar navigation for Passwords, Files, Documentation and Settings;
+- Files workspace for encrypted attachments with search and category filters;
+- Documentation workspace for local README, `.docs/`, contribution guide and license content;
 - account menu with log out;
 - password table with row actions;
 - modal editor for create/edit;

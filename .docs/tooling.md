@@ -38,6 +38,7 @@ flowchart TB
 
     Desktop --> Tray["Tray icon"]
     Desktop --> Settings["Settings workspace"]
+    Desktop --> Documentation["In-app documentation"]
     Desktop --> Account["Account log out menu"]
 
     Security --> Hello["Windows Hello/PIN/biometric"]

@@ -35,7 +35,8 @@ The first product target is a beautiful dark desktop vault that feels modern, di
 | Recovery | Export/import Recovery Kit, optional passphrase hint and re-protect local keyring | Implemented |
 | Master password | Optional local second factor after Windows authorization | Implemented |
 | AuthPolicy 2FA | Encrypted vault policy with TOTP QR setup, manual setup key and one-time recovery codes | Implemented |
-| Secure files | Encrypted file attachments with import/export/delete | Implemented |
+| Secure files | Encrypted file attachments with import/export/delete, search and category filter | Implemented |
+| Documentation | In-app documentation workspace for README, `.docs/`, contribution guide and license | Implemented |
 | Session hardening | 15-minute inactivity auto-lock and Windows verification for sensitive actions | Implemented |
 | Storage settings | Configurable vault database path | Implemented |
 | Smoke tests | End-to-end core test for CRUD, encryption, recovery and keyring loss | Implemented |
@@ -102,6 +103,7 @@ mindmap
     Desktop
       Dark shell
       Sidebar settings
+      Documentation workspace
       Account menu
       Tray icon
     Developer
@@ -119,6 +121,7 @@ flowchart TB
         MainWindow["MainWindow.xaml"]
         Dialogs["Windows password and recovery dialogs"]
         Settings["Settings workspace"]
+        Documentation["Documentation workspace"]
         Tray["Windows tray integration"]
     end
 
@@ -142,6 +145,7 @@ flowchart TB
     MainWindow --> Vault
     Dialogs --> Vault
     Settings --> Vault
+    Documentation --> MainWindow
     Tray --> MainWindow
     Vault --> Repository
     Vault --> KeyStore
