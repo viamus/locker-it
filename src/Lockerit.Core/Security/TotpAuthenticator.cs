@@ -8,6 +8,7 @@ public static class TotpAuthenticator
 {
     public const int DefaultAllowedDriftSteps = 2;
     public const int EnrollmentAllowedDriftSteps = 4;
+    public const int AuthPolicyAllowedDriftSteps = 4;
     private const int SecretByteLength = 20;
     private const int CodeDigits = 6;
     private const int TimeStepSeconds = 30;

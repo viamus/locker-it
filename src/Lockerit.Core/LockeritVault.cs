@@ -244,7 +244,11 @@ public sealed class LockeritVault : IDisposable
 
         if (policy.IsTotpEnabled &&
             !string.IsNullOrWhiteSpace(policy.TotpSecretBase32) &&
-            TotpAuthenticator.VerifyCode(policy.TotpSecretBase32, code, timestamp ?? DateTimeOffset.UtcNow))
+            TotpAuthenticator.VerifyCode(
+                policy.TotpSecretBase32,
+                code,
+                timestamp ?? DateTimeOffset.UtcNow,
+                TotpAuthenticator.AuthPolicyAllowedDriftSteps))
         {
             return AuthPolicyVerificationResult.Success();
         }
@@ -268,7 +272,7 @@ public sealed class LockeritVault : IDisposable
             return AuthPolicyVerificationResult.Success(usedRecoveryCode: true);
         }
 
-        return AuthPolicyVerificationResult.Fail("The authenticator or recovery code was not accepted.");
+        return AuthPolicyVerificationResult.Fail("The authenticator or recovery code was not accepted. Use the newest code from the LockerIt entry and check that automatic time is enabled on this PC and phone.");
     }
 
     public RecoveryKitExportResult ExportRecoveryKit(string recoveryKitPath, string passphrase, string? passphraseHint = null)

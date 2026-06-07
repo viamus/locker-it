@@ -48,8 +48,8 @@ internal sealed class TotpUnlockDialog : Window
         stack.Children.Add(new TextBlock
         {
             Text = activeRecoveryCodeCount > 0
-                ? $"Enter the six-digit authenticator code, or one of your {activeRecoveryCodeCount} remaining recovery codes."
-                : "Enter the six-digit authenticator code. No active recovery codes remain.",
+                ? $"Enter the six-digit authenticator code, or one of your {activeRecoveryCodeCount} remaining recovery codes. If a fresh code fails, check automatic time on this PC and phone."
+                : "Enter the six-digit authenticator code. If a fresh code fails, check automatic time on this PC and phone. No active recovery codes remain.",
             Foreground = BrushFrom("#A9A39A"),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 8, 0, 18)

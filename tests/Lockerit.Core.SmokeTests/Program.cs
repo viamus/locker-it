@@ -106,6 +106,11 @@ try
         Require(!vault.VerifyAuthPolicyCode("not-a-code").Verified, "Invalid AuthPolicy code should fail.");
         var authResult = vault.VerifyAuthPolicyCode(setupCode);
         Require(authResult.Verified && !authResult.UsedRecoveryCode, "Valid TOTP code should verify AuthPolicy.");
+        var authPolicyDriftTimestamp = DateTimeOffset.UtcNow;
+        var authPolicyDriftCode = TotpAuthenticator.GenerateCode(enrollment.SecretBase32, authPolicyDriftTimestamp.AddSeconds(-90));
+        Require(
+            vault.VerifyAuthPolicyCode(authPolicyDriftCode, authPolicyDriftTimestamp).Verified,
+            "AuthPolicy login should tolerate the same small device clock drift as enrollment.");
 
         var usedRecoveryCode = enrollment.RecoveryCodes[0];
         var recoveryCodeResult = vault.VerifyAuthPolicyCode(usedRecoveryCode);
