@@ -43,6 +43,11 @@ public partial class MainWindow : Window
     private bool _isApplyingSettings;
     private bool _isComponentReady;
     private bool _isPasswordRevealed;
+    private bool _isFillingTotpDigits;
+    private bool _inlineRecoveryCodeMode;
+    private int _inlineTotpAttempts;
+    private string _pendingUnlockStatus = "Vault unlocked.";
+    private string _pendingUnlockToast = "Vault unlocked.";
 
     public MainWindow()
     {
@@ -133,29 +138,14 @@ public partial class MainWindow : Window
 
             var paths = ResolveVaultPaths();
             _vault = UnlockVaultWithLegacyMasterPasswordIfRequired(paths);
-            if (!CompleteAdditionalAuthentication("unlock"))
-            {
-                _vault.Dispose();
-                _vault = null;
-                UnlockButton.IsEnabled = true;
-                SetUnlockedState(isUnlocked: false);
-                SetStatus("Two-factor authentication cancelled.");
-                return;
-            }
-
-            LoginSurface.Visibility = Visibility.Collapsed;
-            ShellSurface.Visibility = Visibility.Visible;
-            ShowVaultContent();
-
-            LoadPasswords();
-            LoadFiles();
-            SetUnlockedState(isUnlocked: true);
-            SetStatus(_vault.CreatedNewKey ? "Vault initialized and unlocked." : "Vault unlocked.");
-            ShowToast(_vault.CreatedNewKey ? "Vault initialized." : "Vault unlocked.");
+            CompleteUnlockOrShowInlineChallenge(
+                _vault.CreatedNewKey ? "Vault initialized and unlocked." : "Vault unlocked.",
+                _vault.CreatedNewKey ? "Vault initialized." : "Vault unlocked.");
         }
         catch (Exception ex)
         {
             UnlockButton.IsEnabled = true;
+            HideInlineTotpChallenge();
             ShowError("Unlock failed.", ex);
             SetUnlockedState(isUnlocked: false);
             SetStatus("Unlock failed.");
@@ -182,6 +172,34 @@ public partial class MainWindow : Window
             ShowToast("Legacy master password removed.");
             return vault;
         }
+    }
+
+    private void CompleteUnlockOrShowInlineChallenge(string status, string toast)
+    {
+        var vault = EnsureVault();
+        var policy = vault.GetAuthPolicy();
+        if (policy.RequiresAdditionalFactor)
+        {
+            ShowInlineTotpChallenge(policy, status, toast);
+            return;
+        }
+
+        CompleteVaultUnlock(status, toast);
+    }
+
+    private void CompleteVaultUnlock(string status, string toast)
+    {
+        HideInlineTotpChallenge();
+        LoginSurface.Visibility = Visibility.Collapsed;
+        ShellSurface.Visibility = Visibility.Visible;
+        ShowVaultContent();
+
+        LoadPasswords();
+        LoadFiles();
+        SetUnlockedState(isUnlocked: true);
+        UnlockButton.IsEnabled = true;
+        SetStatus(status);
+        ShowToast(toast);
     }
 
     private void ExitMenuItem_Click(object sender, RoutedEventArgs e)
@@ -1122,6 +1140,7 @@ public partial class MainWindow : Window
         ClearForm();
         CloseEntryModal();
         AccountPopup.IsOpen = false;
+        HideInlineTotpChallenge();
 
         ShellSurface.Visibility = Visibility.Collapsed;
         LoginSurface.Visibility = Visibility.Visible;
@@ -1446,6 +1465,375 @@ public partial class MainWindow : Window
         return false;
     }
 
+    private void ShowInlineTotpChallenge(AuthPolicy policy, string successStatus, string successToast)
+    {
+        _pendingUnlockStatus = successStatus;
+        _pendingUnlockToast = successToast;
+        _inlineTotpAttempts = 0;
+        _inlineRecoveryCodeMode = false;
+
+        LoginUnlockPanel.Visibility = Visibility.Collapsed;
+        LoginTotpPanel.Visibility = Visibility.Visible;
+        LoginTotpValidationText.Text = string.Empty;
+        LoginRecoveryCodeToggleButton.Visibility = policy.ActiveRecoveryCodeCount > 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        ResetInlineTotpInputs();
+        ApplyInlineRecoveryCodeMode();
+        SetStatus("Enter your AuthPolicy code.");
+
+        Dispatcher.BeginInvoke(
+            () =>
+            {
+                TotpDigit1Input.Focus();
+                TotpDigit1Input.SelectAll();
+            },
+            DispatcherPriority.Input);
+    }
+
+    private void HideInlineTotpChallenge()
+    {
+        if (!_isComponentReady || LoginUnlockPanel is null || LoginTotpPanel is null)
+        {
+            return;
+        }
+
+        LoginUnlockPanel.Visibility = Visibility.Visible;
+        LoginTotpPanel.Visibility = Visibility.Collapsed;
+        LoginTotpValidationText.Text = string.Empty;
+        _inlineRecoveryCodeMode = false;
+        _inlineTotpAttempts = 0;
+        ResetInlineTotpInputs();
+        ApplyInlineRecoveryCodeMode();
+    }
+
+    private void VerifyInlineTotpButton_Click(object sender, RoutedEventArgs e)
+    {
+        VerifyInlineTotpCode();
+    }
+
+    private void CancelInlineTotpButton_Click(object sender, RoutedEventArgs e)
+    {
+        CancelPendingInlineUnlock("Two-factor authentication cancelled.");
+    }
+
+    private void ToggleInlineRecoveryCodeButton_Click(object sender, RoutedEventArgs e)
+    {
+        _inlineRecoveryCodeMode = !_inlineRecoveryCodeMode;
+        LoginTotpValidationText.Text = string.Empty;
+        ResetInlineTotpInputs();
+        ApplyInlineRecoveryCodeMode();
+
+        Dispatcher.BeginInvoke(
+            () =>
+            {
+                if (_inlineRecoveryCodeMode)
+                {
+                    LoginRecoveryCodeInput.Focus();
+                    return;
+                }
+
+                TotpDigit1Input.Focus();
+            },
+            DispatcherPriority.Input);
+    }
+
+    private void TotpDigit_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        e.Handled = e.Text.Any(character => !char.IsDigit(character));
+    }
+
+    private void TotpDigit_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_isFillingTotpDigits || sender is not System.Windows.Controls.TextBox textBox)
+        {
+            return;
+        }
+
+        LoginTotpValidationText.Text = string.Empty;
+        if (textBox.Text.Length == 0)
+        {
+            return;
+        }
+
+        var normalized = new string(textBox.Text.Where(char.IsDigit).Take(1).ToArray());
+        if (!string.Equals(textBox.Text, normalized, StringComparison.Ordinal))
+        {
+            textBox.Text = normalized;
+            textBox.CaretIndex = textBox.Text.Length;
+        }
+
+        if (normalized.Length == 0)
+        {
+            return;
+        }
+
+        var inputs = GetTotpDigitInputs();
+        var index = Array.IndexOf(inputs, textBox);
+        if (index >= 0 && index < inputs.Length - 1)
+        {
+            inputs[index + 1].Focus();
+            inputs[index + 1].SelectAll();
+        }
+    }
+
+    private void TotpDigit_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.TextBox textBox)
+        {
+            return;
+        }
+
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            VerifyInlineTotpCode();
+            return;
+        }
+
+        var inputs = GetTotpDigitInputs();
+        var index = Array.IndexOf(inputs, textBox);
+        if (index < 0)
+        {
+            return;
+        }
+
+        if (e.Key == Key.Back && string.IsNullOrEmpty(textBox.Text) && index > 0)
+        {
+            e.Handled = true;
+            inputs[index - 1].Focus();
+            inputs[index - 1].SelectAll();
+            return;
+        }
+
+        if (e.Key == Key.Left && index > 0)
+        {
+            e.Handled = true;
+            inputs[index - 1].Focus();
+            inputs[index - 1].SelectAll();
+            return;
+        }
+
+        if (e.Key == Key.Right && index < inputs.Length - 1)
+        {
+            e.Handled = true;
+            inputs[index + 1].Focus();
+            inputs[index + 1].SelectAll();
+            return;
+        }
+
+        if (e.Key == Key.Space)
+        {
+            e.Handled = true;
+        }
+    }
+
+    private void TotpDigit_Pasting(object sender, DataObjectPastingEventArgs e)
+    {
+        if (!e.DataObject.GetDataPresent(System.Windows.DataFormats.Text))
+        {
+            e.CancelCommand();
+            return;
+        }
+
+        var pasted = e.DataObject.GetData(System.Windows.DataFormats.Text) as string ?? string.Empty;
+        var digits = new string(pasted.Where(char.IsDigit).Take(6).ToArray());
+        if (digits.Length == 0)
+        {
+            e.CancelCommand();
+            return;
+        }
+
+        FillTotpDigits(digits);
+        LoginTotpValidationText.Text = string.Empty;
+        e.CancelCommand();
+    }
+
+    private void RecoveryCodeInput_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        VerifyInlineTotpCode();
+    }
+
+    private void VerifyInlineTotpCode()
+    {
+        if (_vault is null)
+        {
+            CancelPendingInlineUnlock("Unlock expired. Verify your Windows account again.");
+            return;
+        }
+
+        var code = GetInlineAuthPolicyCode();
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            LoginTotpValidationText.Text = _inlineRecoveryCodeMode
+                ? "Enter a Recovery Code."
+                : "Enter all six authenticator digits.";
+            FocusFirstMissingTotpDigit();
+            return;
+        }
+
+        if (!_inlineRecoveryCodeMode && code.Length != 6)
+        {
+            LoginTotpValidationText.Text = "Enter all six authenticator digits.";
+            FocusFirstMissingTotpDigit();
+            return;
+        }
+
+        VerifyTotpButton.IsEnabled = false;
+        try
+        {
+            var result = _vault.VerifyAuthPolicyCode(code);
+            if (result.Verified)
+            {
+                ApplyAuthPolicyStatus();
+                CompleteVaultUnlock(
+                    result.UsedRecoveryCode ? result.Message : _pendingUnlockStatus,
+                    _pendingUnlockToast);
+                return;
+            }
+
+            _inlineTotpAttempts++;
+            if (_inlineTotpAttempts >= 3)
+            {
+                CancelPendingInlineUnlock("Two-factor authorization failed. Unlock again.");
+                return;
+            }
+
+            LoginTotpValidationText.Text = result.Message;
+            SetStatus("Two-factor code was not accepted.");
+            ResetInlineTotpInputs();
+            ApplyInlineRecoveryCodeMode();
+            FocusFirstMissingTotpDigit();
+        }
+        catch (Exception ex)
+        {
+            ShowError("Two-factor verification failed.", ex);
+            CancelPendingInlineUnlock("Two-factor verification failed. Unlock again.");
+        }
+        finally
+        {
+            if (VerifyTotpButton is not null)
+            {
+                VerifyTotpButton.IsEnabled = true;
+            }
+        }
+    }
+
+    private void CancelPendingInlineUnlock(string status)
+    {
+        _vault?.Dispose();
+        _vault = null;
+        UnlockButton.IsEnabled = true;
+        HideInlineTotpChallenge();
+        SetUnlockedState(isUnlocked: false);
+        SetStatus(status);
+    }
+
+    private string GetInlineAuthPolicyCode()
+    {
+        if (_inlineRecoveryCodeMode)
+        {
+            return LoginRecoveryCodeInput.Text.Trim();
+        }
+
+        return string.Concat(GetTotpDigitInputs().Select(input => input.Text.Trim()));
+    }
+
+    private void ApplyInlineRecoveryCodeMode()
+    {
+        if (LoginTotpDigitsPanel is null || LoginRecoveryCodeInput is null || LoginRecoveryCodeToggleText is null)
+        {
+            return;
+        }
+
+        LoginTotpDigitsPanel.Visibility = _inlineRecoveryCodeMode ? Visibility.Collapsed : Visibility.Visible;
+        LoginRecoveryCodeInput.Visibility = _inlineRecoveryCodeMode ? Visibility.Visible : Visibility.Collapsed;
+        LoginRecoveryCodeToggleText.Text = _inlineRecoveryCodeMode
+            ? "Use authenticator code"
+            : "Use recovery code";
+        LoginTotpInstructionText.Text = _inlineRecoveryCodeMode
+            ? "Enter one unused Recovery Code, then press Enter."
+            : "Type the six-digit code from your authenticator app, then press Enter.";
+    }
+
+    private void ResetInlineTotpInputs()
+    {
+        if (!_isComponentReady)
+        {
+            return;
+        }
+
+        _isFillingTotpDigits = true;
+        try
+        {
+            foreach (var input in GetTotpDigitInputs())
+            {
+                input.Clear();
+            }
+
+            LoginRecoveryCodeInput.Clear();
+        }
+        finally
+        {
+            _isFillingTotpDigits = false;
+        }
+    }
+
+    private void FillTotpDigits(string digits)
+    {
+        var inputs = GetTotpDigitInputs();
+        _isFillingTotpDigits = true;
+        try
+        {
+            for (var index = 0; index < inputs.Length; index++)
+            {
+                inputs[index].Text = index < digits.Length ? digits[index].ToString() : string.Empty;
+            }
+        }
+        finally
+        {
+            _isFillingTotpDigits = false;
+        }
+
+        var nextIndex = Math.Min(digits.Length, inputs.Length - 1);
+        inputs[nextIndex].Focus();
+        inputs[nextIndex].SelectAll();
+    }
+
+    private void FocusFirstMissingTotpDigit()
+    {
+        if (_inlineRecoveryCodeMode)
+        {
+            LoginRecoveryCodeInput.Focus();
+            return;
+        }
+
+        var input = GetTotpDigitInputs().FirstOrDefault(candidate => string.IsNullOrWhiteSpace(candidate.Text))
+            ?? TotpDigit6Input;
+        input.Focus();
+        input.SelectAll();
+    }
+
+    private System.Windows.Controls.TextBox[] GetTotpDigitInputs()
+    {
+        return
+        [
+            TotpDigit1Input,
+            TotpDigit2Input,
+            TotpDigit3Input,
+            TotpDigit4Input,
+            TotpDigit5Input,
+            TotpDigit6Input
+        ];
+    }
+
     private void AutoLockTimer_Tick(object? sender, EventArgs e)
     {
         if (_vault is null)
@@ -1473,25 +1861,9 @@ public partial class MainWindow : Window
     {
         _vault?.Dispose();
         _vault = LockeritVault.UnlockWithCurrentWindowsUser(paths);
-        if (!CompleteAdditionalAuthentication("unlock after Recovery Kit import"))
-        {
-            _vault.Dispose();
-            _vault = null;
-            UnlockButton.IsEnabled = true;
-            SetUnlockedState(isUnlocked: false);
-            SetStatus("Two-factor authentication cancelled.");
-            return;
-        }
-
-        LoginSurface.Visibility = Visibility.Collapsed;
-        ShellSurface.Visibility = Visibility.Visible;
-        ShowVaultContent();
-        LoadPasswords();
-        LoadFiles();
-        SetUnlockedState(isUnlocked: true);
-        UnlockButton.IsEnabled = true;
-        SetStatus("Recovery Kit imported and vault unlocked.");
-        ShowToast("Recovery Kit imported.");
+        CompleteUnlockOrShowInlineChallenge(
+            "Recovery Kit imported and vault unlocked.",
+            "Recovery Kit imported.");
     }
 
     private void ConfigureTrayIcon()
