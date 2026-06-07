@@ -1,6 +1,6 @@
 # Product Purpose
 
-LockerIt is a local vault for people who want serious protection without surrendering their secrets to a web service. It starts with passwords because passwords are the smallest high-value secret. It is designed to grow into secure file storage because documents, recovery codes, keys, exports, and identity files often live in the same risky local folders.
+LockerIt is a local vault for people who want serious protection without surrendering their secrets to a web service. It starts with passwords and encrypted file attachments because credentials, documents, recovery codes, keys, exports, and identity files often live in the same risky local folders.
 
 ## Product Promise
 
@@ -52,11 +52,19 @@ journey
       Create password entry: 5: User
       Categorize and save: 4: User
       Copy password when needed: 4: User
+    section Protect files
+      Import local file: 4: User
+      Store encrypted attachment: 5: App
+      Export only after authorization: 4: User
     section Recover intentionally
       Export Recovery Kit: 4: User
       Move vault database: 3: User
       Import Recovery Kit on another PC: 4: User
       Create new local keyring: 5: App
+    section Harden locally
+      Enable master password: 4: User
+      Authorize sensitive action: 5: User
+      Auto-lock idle session: 5: App
 ```
 
 ## What LockerIt Is Not

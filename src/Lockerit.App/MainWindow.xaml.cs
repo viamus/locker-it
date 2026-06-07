@@ -6,7 +6,9 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Lockerit.App.Security;
 using Lockerit.Core;
 using Lockerit.Core.Models;
@@ -21,15 +23,20 @@ namespace Lockerit.App;
 public partial class MainWindow : Window
 {
     private const string DefaultCategory = "General";
+    private static readonly TimeSpan AutoLockAfter = TimeSpan.FromMinutes(15);
 
     private readonly ObservableCollection<PasswordSecret> _passwords = [];
+    private readonly ObservableCollection<VaultFileAttachment> _files = [];
     private readonly List<PasswordSecret> _allPasswords = [];
+    private readonly List<VaultFileAttachment> _allFiles = [];
     private readonly AppSettingsStore _settingsStore = new();
     private readonly WindowsAccountInfo _account;
+    private readonly DispatcherTimer _autoLockTimer = new() { Interval = TimeSpan.FromSeconds(30) };
     private Forms.NotifyIcon? _trayIcon;
     private AppSettings _settings;
     private LockeritVault? _vault;
     private PasswordSecret? _selectedSecret;
+    private DateTimeOffset _lastInteractionUtc = DateTimeOffset.UtcNow;
     private bool _allowExit;
     private bool _isApplyingSettings;
     private bool _isComponentReady;
@@ -44,11 +51,17 @@ public partial class MainWindow : Window
         _isComponentReady = true;
 
         PasswordList.ItemsSource = _passwords;
+        FileList.ItemsSource = _files;
         UnlockWindowsUserText.Text = _account.DisplayName;
         var accountInitials = GetAccountInitials(_account.DisplayName);
         AccountInitialsText.Text = accountInitials;
         AccountMenuInitialsText.Text = accountInitials;
         AccountMenuNameText.Text = _account.DisplayName;
+
+        PreviewKeyDown += ResetActivityOnInput;
+        PreviewMouseDown += ResetActivityOnInput;
+        PreviewMouseMove += ResetActivityOnInput;
+        _autoLockTimer.Tick += AutoLockTimer_Tick;
 
         ConfigureTrayIcon();
         ApplySettingsToUi();
@@ -111,13 +124,14 @@ public partial class MainWindow : Window
             }
 
             var paths = ResolveVaultPaths();
-            _vault = LockeritVault.UnlockWithCurrentWindowsUser(paths);
+            _vault = UnlockVaultWithMasterPasswordIfRequired(paths);
 
             LoginSurface.Visibility = Visibility.Collapsed;
             ShellSurface.Visibility = Visibility.Visible;
             ShowVaultContent();
 
             LoadPasswords();
+            LoadFiles();
             SetUnlockedState(isUnlocked: true);
             SetStatus(_vault.CreatedNewKey ? "Vault initialized and unlocked." : "Vault unlocked.");
         }
@@ -127,6 +141,24 @@ public partial class MainWindow : Window
             ShowError("Unlock failed.", ex);
             SetUnlockedState(isUnlocked: false);
             SetStatus("Unlock failed.");
+        }
+    }
+
+    private LockeritVault UnlockVaultWithMasterPasswordIfRequired(LockeritPaths paths)
+    {
+        try
+        {
+            return LockeritVault.UnlockWithCurrentWindowsUser(paths);
+        }
+        catch (VaultMasterPasswordRequiredException)
+        {
+            var masterPassword = MasterPasswordDialog.ShowForUnlock(this);
+            if (masterPassword is null)
+            {
+                throw;
+            }
+
+            return LockeritVault.UnlockWithCurrentWindowsUser(paths, masterPassword);
         }
     }
 
@@ -235,15 +267,20 @@ public partial class MainWindow : Window
             : "Default vault path restored. Lock and unlock to switch vaults.");
     }
 
-    private void LoginImportRecoveryButton_Click(object sender, RoutedEventArgs e)
+    private async void LoginImportRecoveryButton_Click(object sender, RoutedEventArgs e)
     {
-        ImportRecoveryKit(unlockAfterImport: true);
+        await ImportRecoveryKitAsync(unlockAfterImport: true);
     }
 
-    private void ExportRecoveryKitButton_Click(object sender, RoutedEventArgs e)
+    private async void ExportRecoveryKitButton_Click(object sender, RoutedEventArgs e)
     {
         try
         {
+            if (!await VerifySensitiveActionAsync("export Recovery Kit"))
+            {
+                return;
+            }
+
             var vault = EnsureVault();
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
@@ -264,14 +301,14 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var passphrase = RecoveryPassphraseDialog.ShowForExport(this);
-            if (passphrase is null)
+            var recoveryRequest = RecoveryPassphraseDialog.ShowForExport(this);
+            if (recoveryRequest is null)
             {
                 SetStatus("Recovery export cancelled.");
                 return;
             }
 
-            var result = vault.ExportRecoveryKit(dialog.FileName, passphrase);
+            var result = vault.ExportRecoveryKit(dialog.FileName, recoveryRequest.Passphrase, recoveryRequest.PassphraseHint);
             SetRecoveryStatus($"Recovery Kit exported to {result.FilePath}. Keep it separate from the vault database and remember the recovery passphrase.");
             SetStatus("Recovery Kit exported.");
         }
@@ -282,18 +319,39 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ImportRecoveryKitButton_Click(object sender, RoutedEventArgs e)
+    private async void ImportRecoveryKitButton_Click(object sender, RoutedEventArgs e)
     {
-        ImportRecoveryKit(unlockAfterImport: false);
+        await ImportRecoveryKitAsync(unlockAfterImport: false);
     }
 
-    private void ReprotectKeyringButton_Click(object sender, RoutedEventArgs e)
+    private async void ReprotectKeyringButton_Click(object sender, RoutedEventArgs e)
     {
         try
         {
+            if (!await VerifySensitiveActionAsync("refresh the local keyring"))
+            {
+                return;
+            }
+
             var vault = EnsureVault();
-            vault.ReprotectWindowsKeyringForCurrentUser();
+            if (vault.KeyProtectionMode == KeyProtectionMode.WindowsUserWithMasterPassword)
+            {
+                var masterPassword = MasterPasswordDialog.ShowForSetup(this);
+                if (masterPassword is null)
+                {
+                    SetStatus("Keyring refresh cancelled.");
+                    return;
+                }
+
+                vault.ReprotectWindowsKeyringForCurrentUser(masterPassword);
+            }
+            else
+            {
+                vault.ReprotectWindowsKeyringForCurrentUser();
+            }
+
             SetRecoveryStatus($"Local keyring refreshed for {_account.DisplayName}. Keyring: {vault.Paths.KeyFilePath}");
+            ApplyMasterPasswordStatus();
             ApplyUnlockDiagnostics();
             SetStatus("Local keyring refreshed.");
         }
@@ -304,8 +362,75 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ImportRecoveryKit(bool unlockAfterImport)
+    private async void SetMasterPasswordButton_Click(object sender, RoutedEventArgs e)
     {
+        try
+        {
+            if (!await VerifySensitiveActionAsync("set master password"))
+            {
+                return;
+            }
+
+            var masterPassword = MasterPasswordDialog.ShowForSetup(this);
+            if (masterPassword is null)
+            {
+                SetStatus("Master password setup cancelled.");
+                return;
+            }
+
+            EnsureVault().EnableMasterPasswordForCurrentUser(masterPassword);
+            ApplyMasterPasswordStatus();
+            ApplyUnlockDiagnostics();
+            SetStatus("Master password enabled.");
+        }
+        catch (Exception ex)
+        {
+            ShowError("Master password update failed.", ex);
+            SetStatus("Master password update failed.");
+        }
+    }
+
+    private async void RemoveMasterPasswordButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (!await VerifySensitiveActionAsync("remove master password"))
+            {
+                return;
+            }
+
+            var result = System.Windows.MessageBox.Show(
+                this,
+                "Remove the LockerIt master password from this local keyring? Windows account protection will remain enabled.",
+                "Lockerit",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes)
+            {
+                SetStatus("Master password removal cancelled.");
+                return;
+            }
+
+            EnsureVault().DisableMasterPasswordForCurrentUser();
+            ApplyMasterPasswordStatus();
+            ApplyUnlockDiagnostics();
+            SetStatus("Master password removed.");
+        }
+        catch (Exception ex)
+        {
+            ShowError("Master password removal failed.", ex);
+            SetStatus("Master password removal failed.");
+        }
+    }
+
+    private async Task ImportRecoveryKitAsync(bool unlockAfterImport)
+    {
+        if (!await VerifySensitiveActionAsync("import Recovery Kit"))
+        {
+            return;
+        }
+
         var paths = _vault?.Paths ?? ResolveVaultPaths();
 
         if (!File.Exists(paths.DatabasePath))
@@ -339,7 +464,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var passphrase = RecoveryPassphraseDialog.ShowForImport(this);
+        var metadata = LockeritVault.ReadRecoveryKitMetadata(dialog.FileName);
+        var passphrase = RecoveryPassphraseDialog.ShowForImport(this, metadata.PassphraseHint);
         if (passphrase is null)
         {
             SetStatus("Recovery import cancelled.");
@@ -412,6 +538,20 @@ public partial class MainWindow : Window
         SetStatus("Vault workspace.");
     }
 
+    private void FilesNavButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_vault is null)
+        {
+            ShellSurface.Visibility = Visibility.Collapsed;
+            LoginSurface.Visibility = Visibility.Visible;
+            SetStatus("Unlock the vault first.");
+            return;
+        }
+
+        ShowFilesContent();
+        SetStatus("Files workspace.");
+    }
+
     private void SettingsNavButton_Click(object sender, RoutedEventArgs e)
     {
         if (_vault is null)
@@ -445,6 +585,29 @@ public partial class MainWindow : Window
         }
     }
 
+    private void LoadFiles()
+    {
+        var vault = EnsureVault();
+
+        _allFiles.Clear();
+        _files.Clear();
+        foreach (var file in vault.ListFileAttachments())
+        {
+            _allFiles.Add(file);
+            _files.Add(file);
+        }
+
+        if (FileCountText is not null)
+        {
+            FileCountText.Text = _files.Count == 1 ? "1 encrypted file" : $"{_files.Count} encrypted files";
+        }
+
+        if (EmptyFilesPanel is not null)
+        {
+            EmptyFilesPanel.Visibility = _files.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
     private void ApplyPasswordFilter()
     {
         if (!_isComponentReady ||
@@ -465,8 +628,7 @@ public partial class MainWindow : Window
                 Contains(secret.Title, query) ||
                 Contains(secret.Category, query) ||
                 Contains(secret.UserName, query) ||
-                Contains(secret.Url, query) ||
-                Contains(secret.Notes, query));
+                Contains(secret.Url, query));
         }
 
         if (!string.Equals(category, "All", StringComparison.OrdinalIgnoreCase))
@@ -595,8 +757,13 @@ public partial class MainWindow : Window
         }
     }
 
-    private void RevealButton_Click(object sender, RoutedEventArgs e)
+    private async void RevealButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!_isPasswordRevealed && !await VerifySensitiveActionAsync("reveal a password"))
+        {
+            return;
+        }
+
         SetPasswordReveal(!_isPasswordRevealed);
     }
 
@@ -611,8 +778,13 @@ public partial class MainWindow : Window
         CopyText(UserNameInput.Text, "Username copied.");
     }
 
-    private void CopyPasswordButton_Click(object sender, RoutedEventArgs e)
+    private async void CopyPasswordButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!await VerifySensitiveActionAsync("copy a password"))
+        {
+            return;
+        }
+
         CopyText(ReadPassword(), "Password copied.");
     }
 
@@ -624,11 +796,24 @@ public partial class MainWindow : Window
         }
     }
 
-    private void CopyPasswordRowButton_Click(object sender, RoutedEventArgs e)
+    private async void CopyPasswordRowButton_Click(object sender, RoutedEventArgs e)
     {
         if (GetSecretFromSender(sender) is { } secret)
         {
-            CopyText(secret.Password, "Password copied.");
+            if (!await VerifySensitiveActionAsync("copy a password"))
+            {
+                return;
+            }
+
+            var fullSecret = EnsureVault().GetPassword(secret.Id);
+            try
+            {
+                CopyText(fullSecret.Password, "Password copied.");
+            }
+            finally
+            {
+                fullSecret = fullSecret.ToSummary();
+            }
         }
     }
 
@@ -636,7 +821,7 @@ public partial class MainWindow : Window
     {
         if (GetSecretFromSender(sender) is { } secret)
         {
-            OpenEntryModal(secret);
+            OpenEntryModal(EnsureVault().GetPassword(secret.Id));
             SetStatus("Editing entry.");
         }
     }
@@ -646,6 +831,133 @@ public partial class MainWindow : Window
         if (GetSecretFromSender(sender) is { } secret)
         {
             DeleteSecret(secret);
+        }
+    }
+
+    private async void ImportFileButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (!await VerifySensitiveActionAsync("import an encrypted file"))
+            {
+                return;
+            }
+
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                CheckFileExists = true,
+                Filter = "All files (*.*)|*.*",
+                Title = "Import file into LockerIt"
+            };
+
+            if (dialog.ShowDialog(this) != true)
+            {
+                SetStatus("File import cancelled.");
+                return;
+            }
+
+            var bytes = File.ReadAllBytes(dialog.FileName);
+            try
+            {
+                var file = VaultFileAttachment.Create(
+                    Path.GetFileName(dialog.FileName),
+                    DefaultCategory,
+                    string.Empty,
+                    string.Empty,
+                    bytes);
+
+                EnsureVault().SaveFileAttachment(file);
+                LoadFiles();
+                SetStatus("File encrypted and imported.");
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(bytes);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError("File import failed.", ex);
+            SetStatus("File import failed.");
+        }
+    }
+
+    private async void ExportFileRowButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetFileFromSender(sender) is not { } fileSummary)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await VerifySensitiveActionAsync("export an encrypted file"))
+            {
+                return;
+            }
+
+            var file = EnsureVault().GetFileAttachment(fileSummary.Id);
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                AddExtension = true,
+                Filter = "All files (*.*)|*.*",
+                FileName = file.FileName,
+                OverwritePrompt = true,
+                Title = "Export file from LockerIt"
+            };
+
+            if (dialog.ShowDialog(this) != true)
+            {
+                SetStatus("File export cancelled.");
+                return;
+            }
+
+            try
+            {
+                File.WriteAllBytes(dialog.FileName, file.Content);
+                SetStatus("File exported.");
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(file.Content);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError("File export failed.", ex);
+            SetStatus("File export failed.");
+        }
+    }
+
+    private void DeleteFileRowButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetFileFromSender(sender) is not { } file)
+        {
+            return;
+        }
+
+        var result = System.Windows.MessageBox.Show(
+            this,
+            $"Delete \"{file.FileName}\" from the encrypted vault?",
+            "Lockerit",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (result != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            EnsureVault().DeleteFileAttachment(file.Id);
+            LoadFiles();
+            SetStatus("Encrypted file deleted.");
+        }
+        catch (Exception ex)
+        {
+            ShowError("File delete failed.", ex);
+            SetStatus("File delete failed.");
         }
     }
 
@@ -701,6 +1013,8 @@ public partial class MainWindow : Window
         _vault = null;
         _allPasswords.Clear();
         _passwords.Clear();
+        _allFiles.Clear();
+        _files.Clear();
         PasswordList.SelectedItem = null;
         SearchInput.Text = string.Empty;
         CategoryFilterComboBox.SelectedIndex = 0;
@@ -769,19 +1083,31 @@ public partial class MainWindow : Window
             SearchInput.IsEnabled = isUnlocked;
         }
 
+        if (isUnlocked)
+        {
+            ResetActivity();
+            _autoLockTimer.Start();
+        }
+        else
+        {
+            _autoLockTimer.Stop();
+        }
+
         ApplyUnlockDiagnostics();
+        ApplyMasterPasswordStatus();
         ApplyNavigationState();
     }
 
     private void ApplyNavigationState()
     {
-        if (VaultNavButton is null || SettingsNavButton is null || VaultContent is null || SettingsContent is null)
+        if (VaultNavButton is null || FilesNavButton is null || SettingsNavButton is null || VaultContent is null || FilesContent is null || SettingsContent is null)
         {
             return;
         }
 
         var isVault = VaultContent.Visibility == Visibility.Visible;
         ApplyNavButtonState(VaultNavButton, isVault);
+        ApplyNavButtonState(FilesNavButton, FilesContent.Visibility == Visibility.Visible);
         ApplyNavButtonState(SettingsNavButton, SettingsContent.Visibility == Visibility.Visible);
     }
 
@@ -798,6 +1124,17 @@ public partial class MainWindow : Window
     {
         AccountPopup.IsOpen = false;
         VaultContent.Visibility = Visibility.Visible;
+        FilesContent.Visibility = Visibility.Collapsed;
+        SettingsContent.Visibility = Visibility.Collapsed;
+        ApplyNavigationState();
+    }
+
+    private void ShowFilesContent()
+    {
+        AccountPopup.IsOpen = false;
+        CloseEntryModal();
+        VaultContent.Visibility = Visibility.Collapsed;
+        FilesContent.Visibility = Visibility.Visible;
         SettingsContent.Visibility = Visibility.Collapsed;
         ApplyNavigationState();
     }
@@ -807,6 +1144,7 @@ public partial class MainWindow : Window
         AccountPopup.IsOpen = false;
         CloseEntryModal();
         VaultContent.Visibility = Visibility.Collapsed;
+        FilesContent.Visibility = Visibility.Collapsed;
         SettingsContent.Visibility = Visibility.Visible;
         ApplyNavigationState();
     }
@@ -860,10 +1198,41 @@ public partial class MainWindow : Window
         var state = _vault is null ? "Locked" : "Unlocked";
         var keyState = _vault is null
             ? "The protected key has not been opened in this session."
-            : "The protected key was unsealed by Windows DPAPI for the current user.";
+            : _vault.KeyProtectionMode == KeyProtectionMode.WindowsUserWithMasterPassword
+                ? "The protected key was unsealed by Windows DPAPI plus LockerIt master password."
+                : "The protected key was unsealed by Windows DPAPI for the current user.";
 
         UnlockDiagnosticText.Text =
             $"{state}. Account: {_account.DisplayName}. SID: {_account.Sid ?? "unavailable"}. Vault: {paths.DatabasePath}. {keyState}";
+    }
+
+    private void ApplyMasterPasswordStatus()
+    {
+        if (MasterPasswordStatusText is null)
+        {
+            return;
+        }
+
+        if (_vault is null)
+        {
+            MasterPasswordStatusText.Text = "Unlock the vault to manage the master password.";
+            if (RemoveMasterPasswordButton is not null)
+            {
+                RemoveMasterPasswordButton.IsEnabled = false;
+            }
+
+            return;
+        }
+
+        var enabled = _vault.KeyProtectionMode == KeyProtectionMode.WindowsUserWithMasterPassword;
+        MasterPasswordStatusText.Text = enabled
+            ? "Enabled. This vault requires Windows authorization and the LockerIt master password on unlock."
+            : "Disabled. This vault currently uses Windows account protection only.";
+
+        if (RemoveMasterPasswordButton is not null)
+        {
+            RemoveMasterPasswordButton.IsEnabled = enabled;
+        }
     }
 
     private void SaveLanguage(string languageCode)
@@ -905,6 +1274,49 @@ public partial class MainWindow : Window
         return result == MessageBoxResult.Yes;
     }
 
+    private async Task<bool> VerifySensitiveActionAsync(string action)
+    {
+        var verification = await WindowsCredentialVerifier.VerifyCurrentAccountAsync(this, _account);
+        if (verification.Verified)
+        {
+            ResetActivity();
+            return true;
+        }
+
+        if (verification.Cancelled)
+        {
+            SetStatus($"Authorization cancelled for {action}.");
+            return false;
+        }
+
+        ShowWarning("Windows authorization required.", verification.ErrorMessage ?? $"Windows could not authorize {action}.");
+        SetStatus("Sensitive action blocked.");
+        return false;
+    }
+
+    private void AutoLockTimer_Tick(object? sender, EventArgs e)
+    {
+        if (_vault is null)
+        {
+            return;
+        }
+
+        if (DateTimeOffset.UtcNow - _lastInteractionUtc >= AutoLockAfter)
+        {
+            LockVault("Locked after 15 minutes of inactivity.");
+        }
+    }
+
+    private void ResetActivityOnInput(object sender, InputEventArgs e)
+    {
+        ResetActivity();
+    }
+
+    private void ResetActivity()
+    {
+        _lastInteractionUtc = DateTimeOffset.UtcNow;
+    }
+
     private void OpenVaultAfterRecoveryImport(LockeritPaths paths)
     {
         _vault?.Dispose();
@@ -914,6 +1326,7 @@ public partial class MainWindow : Window
         ShellSurface.Visibility = Visibility.Visible;
         ShowVaultContent();
         LoadPasswords();
+        LoadFiles();
         SetUnlockedState(isUnlocked: true);
         UnlockButton.IsEnabled = true;
         SetStatus("Recovery Kit imported and vault unlocked.");
@@ -1135,6 +1548,11 @@ public partial class MainWindow : Window
     private static PasswordSecret? GetSecretFromSender(object sender)
     {
         return (sender as FrameworkElement)?.Tag as PasswordSecret;
+    }
+
+    private static VaultFileAttachment? GetFileFromSender(object sender)
+    {
+        return (sender as FrameworkElement)?.Tag as VaultFileAttachment;
     }
 
     private static void SelectComboBoxValue(System.Windows.Controls.ComboBox comboBox, string value)

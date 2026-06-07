@@ -14,20 +14,23 @@ public sealed class LockeritVault : IDisposable
         VaultKey key,
         VaultRepository repository,
         bool createdNewKey,
-        WindowsAccountInfo account)
+        WindowsAccountInfo account,
+        KeyProtectionMode keyProtectionMode)
     {
         Paths = paths;
         _key = key;
         _repository = repository;
         CreatedNewKey = createdNewKey;
         Account = account;
+        KeyProtectionMode = keyProtectionMode;
     }
 
     public LockeritPaths Paths { get; }
     public bool CreatedNewKey { get; }
     public WindowsAccountInfo Account { get; }
+    public KeyProtectionMode KeyProtectionMode { get; private set; }
 
-    public static LockeritVault UnlockWithCurrentWindowsUser(LockeritPaths? paths = null)
+    public static LockeritVault UnlockWithCurrentWindowsUser(LockeritPaths? paths = null, string? masterPassword = null)
     {
         var resolvedPaths = paths ?? LockeritPaths.ForCurrentUser();
         var keyStore = new WindowsProtectedKeyStore(resolvedPaths);
@@ -37,7 +40,7 @@ public sealed class LockeritVault : IDisposable
             throw new InvalidOperationException("This vault database already exists, but the Windows keyring for this account is missing. Import a Lockerit Recovery Kit before unlocking this vault on this PC.");
         }
 
-        var keyResult = keyStore.OpenOrCreate();
+        var keyResult = keyStore.OpenOrCreate(masterPassword);
 
         try
         {
@@ -49,7 +52,8 @@ public sealed class LockeritVault : IDisposable
                 keyResult.Key,
                 repository,
                 keyResult.CreatedNewKey,
-                WindowsAccountContext.Current());
+                WindowsAccountContext.Current(),
+                keyStore.GetProtectionMode());
         }
         catch
         {
@@ -79,9 +83,35 @@ public sealed class LockeritVault : IDisposable
         return recoveredKey.ImportResult;
     }
 
+    public static RecoveryKitMetadata ReadRecoveryKitMetadata(string recoveryKitPath)
+    {
+        return new RecoveryKitService().ReadMetadata(recoveryKitPath);
+    }
+
     public IReadOnlyList<PasswordSecret> ListPasswords()
     {
-        return _repository.GetPasswords();
+        return _repository.GetPasswords()
+            .Select(secret => secret.ToSummary())
+            .ToArray();
+    }
+
+    public PasswordSecret GetPassword(Guid id)
+    {
+        return _repository.GetPassword(id)
+            ?? throw new InvalidOperationException("The Lockerit password entry was not found.");
+    }
+
+    public IReadOnlyList<VaultFileAttachment> ListFileAttachments()
+    {
+        return _repository.GetFileAttachments()
+            .Select(file => file.ToSummary())
+            .ToArray();
+    }
+
+    public VaultFileAttachment GetFileAttachment(Guid id)
+    {
+        return _repository.GetFileAttachment(id)
+            ?? throw new InvalidOperationException("The Lockerit file attachment was not found.");
     }
 
     public void SavePassword(PasswordSecret secret)
@@ -104,12 +134,32 @@ public sealed class LockeritVault : IDisposable
         _repository.DeletePassword(id);
     }
 
-    public RecoveryKitExportResult ExportRecoveryKit(string recoveryKitPath, string passphrase)
+    public void SaveFileAttachment(VaultFileAttachment file)
+    {
+        if (string.IsNullOrWhiteSpace(file.FileName))
+        {
+            throw new ArgumentException("File name is required.", nameof(file));
+        }
+
+        if (file.Content.Length == 0)
+        {
+            throw new ArgumentException("File content is required.", nameof(file));
+        }
+
+        _repository.UpsertFileAttachment(file);
+    }
+
+    public void DeleteFileAttachment(Guid id)
+    {
+        _repository.DeleteFileAttachment(id);
+    }
+
+    public RecoveryKitExportResult ExportRecoveryKit(string recoveryKitPath, string passphrase, string? passphraseHint = null)
     {
         var keyMaterial = _key.CopyKeyMaterial();
         try
         {
-            return new RecoveryKitService().Export(recoveryKitPath, keyMaterial, passphrase);
+            return new RecoveryKitService().Export(recoveryKitPath, keyMaterial, passphrase, passphraseHint);
         }
         finally
         {
@@ -119,10 +169,56 @@ public sealed class LockeritVault : IDisposable
 
     public void ReprotectWindowsKeyringForCurrentUser()
     {
+        if (KeyProtectionMode == KeyProtectionMode.WindowsUserWithMasterPassword)
+        {
+            throw new VaultMasterPasswordRequiredException();
+        }
+
+        ReprotectWindowsKeyringForCurrentUser(null);
+    }
+
+    public void ReprotectWindowsKeyringForCurrentUser(string? masterPassword)
+    {
+        var keyMaterial = _key.CopyKeyMaterial();
+        try
+        {
+            var keyStore = new WindowsProtectedKeyStore(Paths);
+            if (KeyProtectionMode == KeyProtectionMode.WindowsUserWithMasterPassword)
+            {
+                keyStore.SaveImportedKeyWithMasterPassword(keyMaterial, masterPassword ?? string.Empty);
+            }
+            else
+            {
+                keyStore.SaveImportedKey(keyMaterial);
+            }
+        }
+        finally
+        {
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(keyMaterial);
+        }
+    }
+
+    public void EnableMasterPasswordForCurrentUser(string masterPassword)
+    {
+        var keyMaterial = _key.CopyKeyMaterial();
+        try
+        {
+            new WindowsProtectedKeyStore(Paths).SaveImportedKeyWithMasterPassword(keyMaterial, masterPassword);
+            KeyProtectionMode = KeyProtectionMode.WindowsUserWithMasterPassword;
+        }
+        finally
+        {
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(keyMaterial);
+        }
+    }
+
+    public void DisableMasterPasswordForCurrentUser()
+    {
         var keyMaterial = _key.CopyKeyMaterial();
         try
         {
             new WindowsProtectedKeyStore(Paths).SaveImportedKey(keyMaterial);
+            KeyProtectionMode = KeyProtectionMode.WindowsUser;
         }
         finally
         {

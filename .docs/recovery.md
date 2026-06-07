@@ -10,6 +10,7 @@ LockerIt recovery is designed for cross-device use without copying the Windows D
 | DPAPI keyring | No | No | Protects the vault master key for one Windows account. |
 | Recovery Kit | Yes | No | Stores an encrypted copy of the vault master key. |
 | Recovery passphrase | User memory or separate secret store | N/A | Unlocks the Recovery Kit. |
+| Recovery passphrase hint | Yes | No | Optional non-secret reminder stored in the Recovery Kit metadata. |
 
 ## Export Flow
 
@@ -23,14 +24,14 @@ sequenceDiagram
 
     User->>App: Open Settings
     User->>App: Click Export Recovery Kit
-    App->>User: Ask for recovery passphrase and confirmation
-    App->>Vault: ExportRecoveryKit(path, passphrase)
+    App->>User: Ask for recovery passphrase, confirmation and optional hint
+    App->>Vault: ExportRecoveryKit(path, passphrase, hint)
     Vault->>Recovery: Wrap vault master key
     Recovery->>Disk: Write *.lockerit-recovery.json
     App->>User: Show export status
 ```
 
-Export does not change the vault database. It creates a small JSON document containing versioned KDF parameters, AES-GCM fields, and a key fingerprint. It does not contain plaintext passwords.
+Export does not change the vault database. It creates a small JSON document containing versioned KDF parameters, AES-GCM fields, an optional non-secret hint, and a key fingerprint. It does not contain plaintext passwords or file attachment bytes.
 
 ## Import Flow
 
@@ -45,6 +46,7 @@ sequenceDiagram
 
     User->>Login: Choose copied vault database
     User->>Login: Import Recovery Kit
+    Login->>User: Show hint if present
     Login->>User: Ask for recovery passphrase
     Login->>Vault: ImportRecoveryKitForCurrentWindowsUser
     Vault->>Recovery: Decrypt wrapped vault master key
@@ -58,12 +60,15 @@ Import validates that the recovered key can open the selected vault before writi
 
 ## Local Keyring Refresh
 
-Settings includes a refresh action that re-saves the current unlocked vault master key into the current Windows account's DPAPI keyring. This is useful after Windows profile repair, keyring migration, or recovery import.
+Settings includes a refresh action that re-saves the current unlocked vault master key into the current Windows account's keyring. If master password mode is enabled, refresh re-wraps the keyring with a new master password.
 
 ```mermaid
 flowchart LR
     UnlockedVault["Unlocked vault"] --> MasterKey["Vault master key in memory"]
-    MasterKey --> Dpapi["DPAPI Protect CurrentUser"]
+    MasterKey --> Mode{"Master password enabled?"}
+    Mode -- "No" --> Dpapi["DPAPI Protect CurrentUser"]
+    Mode -- "Yes" --> Wrap["AES-GCM wrap with master password"]
+    Wrap --> Dpapi
     Dpapi --> Keyring["Local keyring file refreshed"]
 ```
 
@@ -86,7 +91,8 @@ flowchart TD
 2. Store the Recovery Kit away from the vault database.
 3. Store the recovery passphrase separately from both files.
 4. Test import on a non-production copy before relying on it.
-5. Refresh the Recovery Kit after major vault/key policy changes.
+5. Add a non-secret hint if it helps remember the passphrase.
+6. Refresh the Recovery Kit after major vault/key policy changes.
 
 ## Failure Cases
 
@@ -96,4 +102,5 @@ flowchart TD
 | Wrong vault database | Recovered key validation fails before keyring update. |
 | Missing vault database | UI asks the user to choose or copy the vault database first. |
 | Existing local keyring | UI asks for confirmation before replacing it. |
-| Forgotten recovery passphrase | LockerIt cannot recover it. |
+| Forgotten recovery passphrase | The hint can help, and an already-unlocked source device can export a new kit. Without either, LockerIt cannot recover it by design. |
+| Master password enabled and forgotten | Import a Recovery Kit or use an already-unlocked source device to reset the local keyring. |

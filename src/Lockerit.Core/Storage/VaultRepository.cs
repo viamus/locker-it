@@ -78,6 +78,89 @@ public sealed class VaultRepository
             .ToArray();
     }
 
+    public IReadOnlyList<VaultFileAttachment> GetFileAttachments()
+    {
+        using var connection = OpenConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Payload FROM VaultItems WHERE Kind = $kind;";
+        command.Parameters.AddWithValue("$kind", VaultItemKinds.FileAttachment);
+
+        using var reader = command.ExecuteReader();
+        var files = new List<VaultFileAttachment>();
+
+        while (reader.Read())
+        {
+            var payload = reader.GetString(0);
+            try
+            {
+                files.Add(_cipher.DecryptJson<VaultFileAttachment>(payload, _key, VaultItemKinds.FileAttachment));
+            }
+            catch (Exception ex) when (ex is CryptographicException or FormatException or JsonException or InvalidOperationException)
+            {
+                throw new InvalidOperationException("A Lockerit file attachment could not be decrypted.", ex);
+            }
+        }
+
+        return files
+            .OrderBy(file => file.FileName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(file => file.UpdatedAt)
+            .ToArray();
+    }
+
+    public PasswordSecret? GetPassword(Guid id)
+    {
+        using var connection = OpenConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Payload FROM VaultItems WHERE Id = $id AND Kind = $kind;";
+        command.Parameters.AddWithValue("$id", id.ToString("D"));
+        command.Parameters.AddWithValue("$kind", VaultItemKinds.Password);
+
+        var payload = command.ExecuteScalar() as string;
+        if (payload is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return _cipher.DecryptJson<PasswordSecret>(payload, _key, VaultItemKinds.Password);
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException or JsonException or InvalidOperationException)
+        {
+            throw new InvalidOperationException("A Lockerit password entry could not be decrypted.", ex);
+        }
+    }
+
+    public VaultFileAttachment? GetFileAttachment(Guid id)
+    {
+        using var connection = OpenConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Payload FROM VaultItems WHERE Id = $id AND Kind = $kind;";
+        command.Parameters.AddWithValue("$id", id.ToString("D"));
+        command.Parameters.AddWithValue("$kind", VaultItemKinds.FileAttachment);
+
+        var payload = command.ExecuteScalar() as string;
+        if (payload is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return _cipher.DecryptJson<VaultFileAttachment>(payload, _key, VaultItemKinds.FileAttachment);
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException or JsonException or InvalidOperationException)
+        {
+            throw new InvalidOperationException("A Lockerit file attachment could not be decrypted.", ex);
+        }
+    }
+
     public void UpsertPassword(PasswordSecret secret)
     {
         var payload = _cipher.EncryptJson(secret, _key, VaultItemKinds.Password);
@@ -100,7 +183,39 @@ public sealed class VaultRepository
         command.ExecuteNonQuery();
     }
 
+    public void UpsertFileAttachment(VaultFileAttachment file)
+    {
+        var payload = _cipher.EncryptJson(file, _key, VaultItemKinds.FileAttachment);
+
+        using var connection = OpenConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            INSERT INTO VaultItems (Id, Kind, Payload)
+            VALUES ($id, $kind, $payload)
+            ON CONFLICT(Id) DO UPDATE SET
+                Kind = excluded.Kind,
+                Payload = excluded.Payload;
+            """;
+        command.Parameters.AddWithValue("$id", file.Id.ToString("D"));
+        command.Parameters.AddWithValue("$kind", VaultItemKinds.FileAttachment);
+        command.Parameters.AddWithValue("$payload", payload);
+        command.ExecuteNonQuery();
+    }
+
     public void DeletePassword(Guid id)
+    {
+        DeleteItem(id, VaultItemKinds.Password);
+    }
+
+    public void DeleteFileAttachment(Guid id)
+    {
+        DeleteItem(id, VaultItemKinds.FileAttachment);
+    }
+
+    private void DeleteItem(Guid id, string kind)
     {
         using var connection = OpenConnection();
         connection.Open();
@@ -108,7 +223,7 @@ public sealed class VaultRepository
         using var command = connection.CreateCommand();
         command.CommandText = "DELETE FROM VaultItems WHERE Id = $id AND Kind = $kind;";
         command.Parameters.AddWithValue("$id", id.ToString("D"));
-        command.Parameters.AddWithValue("$kind", VaultItemKinds.Password);
+        command.Parameters.AddWithValue("$kind", kind);
         command.ExecuteNonQuery();
     }
 

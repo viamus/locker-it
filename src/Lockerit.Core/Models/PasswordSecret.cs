@@ -56,6 +56,15 @@ public sealed record PasswordSecret
         };
     }
 
+    public PasswordSecret ToSummary()
+    {
+        return this with
+        {
+            Password = string.Empty,
+            Notes = string.Empty
+        };
+    }
+
     private static string NormalizeCategory(string category)
     {
         return string.IsNullOrWhiteSpace(category) ? "General" : category.Trim();

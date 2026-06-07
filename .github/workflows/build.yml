@@ -1,0 +1,36 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+      - "codex/**"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and smoke test
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Lockerit.slnx --locked-mode
+
+      - name: Build
+        run: dotnet build Lockerit.slnx --configuration Release --no-restore -p:ContinuousIntegrationBuild=true
+
+      - name: Core smoke test
+        run: dotnet run --configuration Release --no-build --project tests/Lockerit.Core.SmokeTests/Lockerit.Core.SmokeTests.csproj

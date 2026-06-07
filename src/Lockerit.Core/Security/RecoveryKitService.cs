@@ -33,7 +33,7 @@ internal sealed class RecoveryKitService
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public RecoveryKitExportResult Export(string recoveryKitPath, ReadOnlySpan<byte> vaultKey, string passphrase)
+    public RecoveryKitExportResult Export(string recoveryKitPath, ReadOnlySpan<byte> vaultKey, string passphrase, string? passphraseHint)
     {
         if (vaultKey.Length != VaultKey.SizeInBytes)
         {
@@ -85,7 +85,8 @@ internal sealed class RecoveryKitService
                         Tag = Convert.ToBase64String(tag),
                         Ciphertext = Convert.ToBase64String(ciphertext)
                     },
-                    KeyFingerprint = Convert.ToBase64String(fingerprint)
+                    KeyFingerprint = Convert.ToBase64String(fingerprint),
+                    PassphraseHint = NormalizeHint(passphraseHint)
                 };
 
                 var temporaryPath = fullPath + ".tmp";
@@ -118,19 +119,7 @@ internal sealed class RecoveryKitService
         ValidateImportPassphrase(passphrase);
 
         var fullPath = Path.GetFullPath(Environment.ExpandEnvironmentVariables(recoveryKitPath));
-        var fileInfo = new FileInfo(fullPath);
-        if (!fileInfo.Exists)
-        {
-            throw new FileNotFoundException("The Lockerit Recovery Kit was not found.", fullPath);
-        }
-
-        if (fileInfo.Length > MaximumRecoveryKitBytes)
-        {
-            throw new InvalidOperationException("The Lockerit Recovery Kit file is too large.");
-        }
-
-        var document = JsonSerializer.Deserialize<RecoveryKitDocument>(File.ReadAllText(fullPath, Encoding.UTF8), JsonOptions)
-            ?? throw new InvalidOperationException("The Lockerit Recovery Kit is empty.");
+        var document = ReadDocument(fullPath);
 
         ValidateDocument(document);
 
@@ -183,6 +172,20 @@ internal sealed class RecoveryKitService
         }
     }
 
+    public RecoveryKitMetadata ReadMetadata(string recoveryKitPath)
+    {
+        var fullPath = Path.GetFullPath(Environment.ExpandEnvironmentVariables(recoveryKitPath));
+        var document = ReadDocument(fullPath);
+        ValidateDocument(document);
+
+        return new RecoveryKitMetadata(
+            fullPath,
+            document.CreatedAtUtc,
+            string.IsNullOrWhiteSpace(document.PassphraseHint) ? null : document.PassphraseHint,
+            document.Kdf.Name,
+            document.Kdf.Iterations);
+    }
+
     private static byte[] DeriveWrappingKey(string passphrase, byte[] salt, int iterations)
     {
         return Rfc2898DeriveBytes.Pbkdf2(
@@ -197,6 +200,29 @@ internal sealed class RecoveryKitService
     {
         using var hmac = new HMACSHA256(vaultKey);
         return hmac.ComputeHash(FingerprintPurpose);
+    }
+
+    private static RecoveryKitDocument ReadDocument(string fullPath)
+    {
+        var fileInfo = new FileInfo(fullPath);
+        if (!fileInfo.Exists)
+        {
+            throw new FileNotFoundException("The Lockerit Recovery Kit was not found.", fullPath);
+        }
+
+        if (fileInfo.Length > MaximumRecoveryKitBytes)
+        {
+            throw new InvalidOperationException("The Lockerit Recovery Kit file is too large.");
+        }
+
+        return JsonSerializer.Deserialize<RecoveryKitDocument>(File.ReadAllText(fullPath, Encoding.UTF8), JsonOptions)
+            ?? throw new InvalidOperationException("The Lockerit Recovery Kit is empty.");
+    }
+
+    private static string? NormalizeHint(string? passphraseHint)
+    {
+        var normalized = passphraseHint?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
     private static void ValidateExportPassphrase(string passphrase)
@@ -283,6 +309,7 @@ internal sealed class RecoveryKitService
         public RecoveryKitKdf Kdf { get; set; } = new();
         public RecoveryKitCipher Cipher { get; set; } = new();
         public string KeyFingerprint { get; set; } = string.Empty;
+        public string? PassphraseHint { get; set; }
     }
 
     private sealed class RecoveryKitKdf

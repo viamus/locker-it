@@ -6,28 +6,25 @@ using WpfButton = System.Windows.Controls.Button;
 using WpfColor = System.Windows.Media.Color;
 using WpfColorConverter = System.Windows.Media.ColorConverter;
 using WpfFontFamily = System.Windows.Media.FontFamily;
-using WpfTextBox = System.Windows.Controls.TextBox;
 
 namespace Lockerit.App;
 
-internal sealed class RecoveryPassphraseDialog : Window
+internal sealed class MasterPasswordDialog : Window
 {
-    private readonly PasswordBox _passphraseInput = new();
+    private readonly PasswordBox _passwordInput = new();
     private readonly PasswordBox? _confirmInput;
-    private readonly WpfTextBox? _hintInput;
     private readonly TextBlock _validationText = new();
     private readonly bool _requiresConfirmation;
 
-    private RecoveryPassphraseDialog(
+    private MasterPasswordDialog(
         string title,
         string heading,
         string description,
         string primaryAction,
-        bool requiresConfirmation,
-        bool includesHint,
-        string? passphraseHint)
+        bool requiresConfirmation)
     {
         _requiresConfirmation = requiresConfirmation;
+        _confirmInput = requiresConfirmation ? new PasswordBox() : null;
 
         Title = title;
         Width = 440;
@@ -36,9 +33,6 @@ internal sealed class RecoveryPassphraseDialog : Window
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = BrushFrom("#0E0F0D");
         Foreground = BrushFrom("#F2EFE7");
-
-        _confirmInput = requiresConfirmation ? new PasswordBox() : null;
-        _hintInput = includesHint ? new WpfTextBox() : null;
 
         var root = new Border
         {
@@ -68,32 +62,15 @@ internal sealed class RecoveryPassphraseDialog : Window
             Margin = new Thickness(0, 8, 0, 18)
         });
 
-        stack.Children.Add(CreateLabel("Recovery passphrase"));
-        ConfigurePasswordBox(_passphraseInput);
-        stack.Children.Add(_passphraseInput);
+        stack.Children.Add(CreateLabel("Master password"));
+        ConfigurePasswordBox(_passwordInput);
+        stack.Children.Add(_passwordInput);
 
         if (_confirmInput is not null)
         {
-            stack.Children.Add(CreateLabel("Confirm passphrase"));
+            stack.Children.Add(CreateLabel("Confirm master password"));
             ConfigurePasswordBox(_confirmInput);
             stack.Children.Add(_confirmInput);
-        }
-
-        if (_hintInput is not null)
-        {
-            stack.Children.Add(CreateLabel("Passphrase hint (optional, not secret)"));
-            ConfigureTextBox(_hintInput);
-            stack.Children.Add(_hintInput);
-        }
-        else if (!string.IsNullOrWhiteSpace(passphraseHint))
-        {
-            stack.Children.Add(new TextBlock
-            {
-                Text = $"Hint: {passphraseHint}",
-                Foreground = BrushFrom("#A9A39A"),
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 14, 0, 0)
-            });
         }
 
         _validationText.Foreground = BrushFrom("#E06A5F");
@@ -122,65 +99,52 @@ internal sealed class RecoveryPassphraseDialog : Window
         stack.Children.Add(actions);
         Content = root;
 
-        Loaded += (_, _) => _passphraseInput.Focus();
+        Loaded += (_, _) => _passwordInput.Focus();
     }
 
-    public string Passphrase { get; private set; } = string.Empty;
-    public string PassphraseHint { get; private set; } = string.Empty;
+    public string MasterPassword { get; private set; } = string.Empty;
 
-    public static RecoveryPassphraseRequest? ShowForExport(Window owner)
+    public static string? ShowForUnlock(Window owner)
     {
-        var dialog = new RecoveryPassphraseDialog(
-            "Export Recovery Kit",
-            "Export Recovery Kit",
-            "Create a recovery passphrase. You will need it with the vault database to unlock this vault on another Windows account.",
-            "Export",
-            requiresConfirmation: true,
-            includesHint: true,
-            passphraseHint: null)
+        var dialog = new MasterPasswordDialog(
+            "Master Password",
+            "Master password required",
+            "Windows authorized this account. Enter the LockerIt master password to open the local keyring.",
+            "Unlock",
+            requiresConfirmation: false)
         {
             Owner = owner
         };
 
-        return dialog.ShowDialog() == true
-            ? new RecoveryPassphraseRequest(dialog.Passphrase, dialog.PassphraseHint)
-            : null;
+        return dialog.ShowDialog() == true ? dialog.MasterPassword : null;
     }
 
-    public static string? ShowForImport(Window owner, string? passphraseHint)
+    public static string? ShowForSetup(Window owner)
     {
-        var dialog = new RecoveryPassphraseDialog(
-            "Import Recovery Kit",
-            "Import Recovery Kit",
-            "Enter the recovery passphrase for this kit. Lockerit will create a new Windows-protected keyring for the current account.",
-            "Import",
-            requiresConfirmation: false,
-            includesHint: false,
-            passphraseHint: passphraseHint)
+        var dialog = new MasterPasswordDialog(
+            "Set Master Password",
+            "Set master password",
+            "Add a second local factor after Windows authorization. Losing this password requires Recovery Kit import or an already-unlocked source device.",
+            "Save",
+            requiresConfirmation: true)
         {
             Owner = owner
         };
 
-        return dialog.ShowDialog() == true ? dialog.Passphrase : null;
+        return dialog.ShowDialog() == true ? dialog.MasterPassword : null;
     }
 
     protected override void OnClosed(EventArgs e)
     {
-        _passphraseInput.Password = string.Empty;
+        _passwordInput.Password = string.Empty;
         if (_confirmInput is not null)
         {
             _confirmInput.Password = string.Empty;
         }
 
-        if (_hintInput is not null)
-        {
-            _hintInput.Text = string.Empty;
-        }
-
         if (DialogResult != true)
         {
-            Passphrase = string.Empty;
-            PassphraseHint = string.Empty;
+            MasterPassword = string.Empty;
         }
 
         base.OnClosed(e);
@@ -188,31 +152,22 @@ internal sealed class RecoveryPassphraseDialog : Window
 
     private void ConfirmButton_Click(object sender, RoutedEventArgs e)
     {
-        var passphrase = _passphraseInput.Password;
-
-        if (string.IsNullOrWhiteSpace(passphrase))
+        var masterPassword = _passwordInput.Password;
+        if (string.IsNullOrWhiteSpace(masterPassword) || masterPassword.Length < 12)
         {
-            _validationText.Text = "Recovery passphrase is required.";
-            _passphraseInput.Focus();
+            _validationText.Text = "Use at least 12 characters for the master password.";
+            _passwordInput.Focus();
             return;
         }
 
-        if (_requiresConfirmation && passphrase.Length < 12)
+        if (_confirmInput is not null && !string.Equals(masterPassword, _confirmInput.Password, StringComparison.Ordinal))
         {
-            _validationText.Text = "Use at least 12 characters for the recovery passphrase.";
-            _passphraseInput.Focus();
-            return;
-        }
-
-        if (_confirmInput is not null && !string.Equals(passphrase, _confirmInput.Password, StringComparison.Ordinal))
-        {
-            _validationText.Text = "The passphrases do not match.";
+            _validationText.Text = "The master passwords do not match.";
             _confirmInput.Focus();
             return;
         }
 
-        Passphrase = passphrase;
-        PassphraseHint = _hintInput?.Text.Trim() ?? string.Empty;
+        MasterPassword = masterPassword;
         DialogResult = true;
     }
 
@@ -240,18 +195,6 @@ internal sealed class RecoveryPassphraseDialog : Window
         passwordBox.FontFamily = new WpfFontFamily("Segoe UI");
     }
 
-    private static void ConfigureTextBox(WpfTextBox textBox)
-    {
-        textBox.MinHeight = 38;
-        textBox.Padding = new Thickness(12, 8, 12, 8);
-        textBox.Background = BrushFrom("#121311");
-        textBox.Foreground = BrushFrom("#F2EFE7");
-        textBox.CaretBrush = BrushFrom("#D97757");
-        textBox.BorderBrush = BrushFrom("#34352F");
-        textBox.BorderThickness = new Thickness(1);
-        textBox.FontFamily = new WpfFontFamily("Segoe UI");
-    }
-
     private static WpfButton CreateButton(string text, WpfBrush background, WpfBrush border, WpfBrush foreground)
     {
         return new WpfButton
@@ -274,5 +217,3 @@ internal sealed class RecoveryPassphraseDialog : Window
         return new SolidColorBrush((WpfColor)WpfColorConverter.ConvertFromString(color));
     }
 }
-
-internal sealed record RecoveryPassphraseRequest(string Passphrase, string PassphraseHint);
