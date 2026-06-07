@@ -80,6 +80,15 @@ try
         var qrCode = TotpQrCodeGenerator.CreateMatrix(enrollment.SetupUri);
         Require(qrCode.Size >= 21 && qrCode.Size % 4 == 1, "TOTP QR code size mismatch.");
         Require(qrCode.IsDark(0, 0), "TOTP QR code should include a finder pattern.");
+        var driftTimestamp = DateTimeOffset.UtcNow;
+        var driftCode = TotpAuthenticator.GenerateCode(enrollment.SecretBase32, driftTimestamp.AddSeconds(-90));
+        Require(
+            TotpAuthenticator.VerifyCode(
+                enrollment.SecretBase32,
+                driftCode,
+                driftTimestamp,
+                TotpAuthenticator.EnrollmentAllowedDriftSteps),
+            "TOTP enrollment should tolerate small device clock drift.");
         RequireThrows<InvalidOperationException>(
             () => vault.EnableTotp(enrollment, "not-a-code"),
             "Invalid TOTP setup code should not enable AuthPolicy.");

@@ -177,7 +177,11 @@ public sealed class LockeritVault : IDisposable
 
     public void EnableTotp(TotpEnrollment enrollment, string verificationCode)
     {
-        if (!TotpAuthenticator.VerifyCode(enrollment.SecretBase32, verificationCode, DateTimeOffset.UtcNow))
+        if (!TotpAuthenticator.VerifyCode(
+                enrollment.SecretBase32,
+                verificationCode,
+                DateTimeOffset.UtcNow,
+                TotpAuthenticator.EnrollmentAllowedDriftSteps))
         {
             throw new InvalidOperationException("The authenticator code was not accepted.");
         }

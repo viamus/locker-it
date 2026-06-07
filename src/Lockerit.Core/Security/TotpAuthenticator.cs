@@ -6,6 +6,8 @@ namespace Lockerit.Core.Security;
 
 public static class TotpAuthenticator
 {
+    public const int DefaultAllowedDriftSteps = 2;
+    public const int EnrollmentAllowedDriftSteps = 4;
     private const int SecretByteLength = 20;
     private const int CodeDigits = 6;
     private const int TimeStepSeconds = 30;
@@ -41,7 +43,7 @@ public static class TotpAuthenticator
         string secretBase32,
         string code,
         DateTimeOffset timestamp,
-        int allowedDriftSteps = 1)
+        int allowedDriftSteps = DefaultAllowedDriftSteps)
     {
         var normalizedCode = NormalizeCode(code);
         if (normalizedCode.Length != CodeDigits)

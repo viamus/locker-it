@@ -96,6 +96,18 @@ internal sealed class TotpEnrollmentDialog : Window
             return;
         }
 
+        if (!TotpAuthenticator.VerifyCode(
+                _enrollment.SecretBase32,
+                code,
+                DateTimeOffset.UtcNow,
+                TotpAuthenticator.EnrollmentAllowedDriftSteps))
+        {
+            _validationText.Text = "That code does not match this setup key. Use the newest LockerIt entry in your authenticator, wait for the next code, or add the manual setup key. Also check that this PC and phone have automatic time enabled.";
+            _codeInput.SelectAll();
+            _codeInput.Focus();
+            return;
+        }
+
         VerificationCode = code;
         DialogResult = true;
     }
