@@ -43,7 +43,7 @@ flowchart TB
 
     Security --> Hello["Windows Hello/PIN/biometric"]
     Security --> Dpapi["DPAPI keyring"]
-    Security --> Master["Optional master password"]
+    Security --> LegacyMaster["Legacy master-password migration"]
     Security --> Policy["Encrypted AuthPolicy"]
     Security --> Aes["AES-GCM payload encryption"]
     Security --> AutoLock["Auto-lock"]

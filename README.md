@@ -33,7 +33,7 @@ The first product target is a beautiful dark desktop vault that feels modern, di
 | Encryption | AES-256-GCM encrypted JSON payloads before SQLite persistence | Implemented |
 | Local keyring | 256-bit vault master key protected with Windows DPAPI CurrentUser | Implemented |
 | Recovery | Export/import Recovery Kit, optional passphrase hint and re-protect local keyring | Implemented |
-| Master password | Optional local second factor after Windows authorization | Implemented |
+| Legacy master password | Existing master-password keyrings can still unlock and are migrated back to Windows + AuthPolicy protection | Compatibility |
 | AuthPolicy 2FA | Encrypted vault policy with TOTP QR setup, manual setup key and one-time recovery codes | Implemented |
 | Secure files | Encrypted file attachments with import/export/delete, search and category filter | Implemented |
 | Documentation | In-app documentation workspace for README, `.docs/`, contribution guide and license | Implemented |
@@ -54,7 +54,7 @@ flowchart LR
     Core --> Cipher["AES-256-GCM payload cipher"]
     Core --> Store["SQLite vault database"]
     Core --> Keyring["DPAPI CurrentUser keyring"]
-    Core --> MasterPassword["Optional master password wrap"]
+    Core --> LegacyMaster["Legacy master-password migration"]
     Core --> AuthPolicy["Encrypted AuthPolicy"]
     AuthPolicy --> Totp["TOTP and one-time recovery codes"]
     Core --> Recovery["Recovery Kit service"]
@@ -87,7 +87,7 @@ mindmap
       Windows Hello consent
       Password fallback
       DPAPI keyring
-      Optional master password
+      Legacy master-password migration
       AuthPolicy
       TOTP authenticator
       Recovery codes
@@ -184,7 +184,7 @@ For custom database paths, the keyring is stored beside the selected database us
 
 Password entries and file attachment payloads are serialized as JSON, encrypted with AES-256-GCM, and only then written to SQLite. The database stores item ID, item kind, and encrypted payload. The keyring is protected with `DataProtectionScope.CurrentUser`, so another Windows profile cannot unprotect it directly.
 
-LockerIt can also add a master password to the local keyring. In that mode, Windows authorization is still required, but the DPAPI-unsealed keyring contains an AES-GCM wrapped vault key that also requires the LockerIt master password. This is a local second factor, not a cloud account or remote escrow system.
+Older LockerIt builds could add a master password to the local keyring. The desktop UI no longer exposes that option because AuthPolicy 2FA is the supported second factor. Existing master-password keyrings can still be opened for compatibility and are re-saved into the Windows + AuthPolicy model after unlock.
 
 LockerIt AuthPolicy adds another local gate after the vault key is opened: an encrypted policy item inside the vault can require a TOTP authenticator code before the workspace is shown. The setup dialog renders a local QR code and also provides the manual setup key/URI as fallback. The same policy stores hashed one-time recovery codes. Because AuthPolicy lives in the encrypted database, it moves with the vault across devices and remains protected by the vault master key.
 
@@ -280,7 +280,7 @@ The smoke test validates:
 - failed import with a wrong passphrase;
 - successful import after deleting the local keyring;
 - AuthPolicy TOTP enable, verify, recovery-code consume and persistence;
-- master password protected keyring unlock behavior;
+- legacy master-password keyring unlock/migration behavior;
 - recovered vault unlock.
 
 ## Supply-Chain Posture
@@ -296,9 +296,9 @@ The dependency set is intentionally small:
 
 | Previous limitation | Current correction or mitigation | Residual risk |
 | --- | --- | --- |
-| Malware already running as the same unlocked Windows user can interact with the app or user-scoped APIs. | Sensitive actions require Windows authorization, the app auto-locks after 15 minutes of inactivity, optional master password protects the local keyring, and AuthPolicy can require TOTP before the workspace opens. | Malware with the same user context is still outside the hard boundary of a local desktop app. |
+| Malware already running as the same unlocked Windows user can interact with the app or user-scoped APIs. | Unlock requires Windows authorization, the app auto-locks after 15 minutes of inactivity, and AuthPolicy can require TOTP before the workspace opens. Routine copy/download actions stay frictionless after unlock. | Malware with the same user context is still outside the hard boundary of a local desktop app. |
 | Recovery passphrase cannot be recovered if forgotten. | Recovery Kits can include a non-secret hint, and an already-unlocked source device can export a new kit. | LockerIt still cannot recover a forgotten passphrase without an unlocked source or another valid Recovery Kit. That is intentional to avoid escrow. |
-| No separate master password option. | Implemented optional DPAPI plus master password keyring mode. | Losing both master password and Recovery Kit blocks local unlock. |
+| No separate master password option. | Replaced by AuthPolicy TOTP as the supported second factor. Legacy master-password keyrings remain unlockable for migration. | Losing the Recovery Kit/passphrase or all valid AuthPolicy recovery paths can still block cross-device recovery. |
 | No hardware-backed key option. | Windows Hello/PIN/biometric user presence is used for unlock and sensitive actions when available. | Direct TPM-held vault key storage is not implemented yet. |
 | Encrypted file attachments are not implemented. | Implemented encrypted file attachment import/export/delete using the same AES-GCM vault payload model. | Large-file streaming and attachment previews are not implemented yet. |
 | Decrypted strings can exist in UI memory while the app is open. | Password and file lists use summaries without decrypted passwords, notes, or file bytes; full secrets are loaded only for specific actions; modal fields are cleared on close/lock. | WPF strings and password fields can still exist in process memory during active use. |

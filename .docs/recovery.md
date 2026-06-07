@@ -63,15 +63,12 @@ If the copied vault database has AuthPolicy TOTP enabled, the imported vault sti
 
 ## Local Keyring Refresh
 
-Settings includes a refresh action that re-saves the current unlocked vault master key into the current Windows account's keyring. If master password mode is enabled, refresh re-wraps the keyring with a new master password.
+Settings includes a refresh action that re-saves the current unlocked vault master key into the current Windows account's keyring. If a legacy master-password keyring is open, refresh migrates it back to the Windows + AuthPolicy model.
 
 ```mermaid
 flowchart LR
     UnlockedVault["Unlocked vault"] --> MasterKey["Vault master key in memory"]
-    MasterKey --> Mode{"Master password enabled?"}
-    Mode -- "No" --> Dpapi["DPAPI Protect CurrentUser"]
-    Mode -- "Yes" --> Wrap["AES-GCM wrap with master password"]
-    Wrap --> Dpapi
+    MasterKey --> Dpapi["DPAPI Protect CurrentUser"]
     Dpapi --> Keyring["Local keyring file refreshed"]
 ```
 
@@ -107,5 +104,5 @@ flowchart TD
 | Missing vault database | UI asks the user to choose or copy the vault database first. |
 | Existing local keyring | UI asks for confirmation before replacing it. |
 | Forgotten recovery passphrase | The hint can help, and an already-unlocked source device can export a new kit. Without either, LockerIt cannot recover it by design. |
-| Master password enabled and forgotten | Import a Recovery Kit or use an already-unlocked source device to reset the local keyring. |
+| Legacy master password forgotten | Import a Recovery Kit or use an already-unlocked source device to reset the local keyring. |
 | Authenticator app unavailable | Use an unused AuthPolicy recovery code, then regenerate codes or replace TOTP from Settings. |

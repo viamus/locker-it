@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private readonly AppSettingsStore _settingsStore = new();
     private readonly WindowsAccountInfo _account;
     private readonly DispatcherTimer _autoLockTimer = new() { Interval = TimeSpan.FromSeconds(30) };
+    private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private Forms.NotifyIcon? _trayIcon;
     private AppSettings _settings;
     private LockeritVault? _vault;
@@ -69,6 +70,7 @@ public partial class MainWindow : Window
         PreviewMouseDown += ResetActivityOnInput;
         PreviewMouseMove += ResetActivityOnInput;
         _autoLockTimer.Tick += AutoLockTimer_Tick;
+        _toastTimer.Tick += ToastTimer_Tick;
 
         ConfigureTrayIcon();
         LoadDocumentationIndex();
@@ -132,7 +134,7 @@ public partial class MainWindow : Window
             }
 
             var paths = ResolveVaultPaths();
-            _vault = UnlockVaultWithMasterPasswordIfRequired(paths);
+            _vault = UnlockVaultWithLegacyMasterPasswordIfRequired(paths);
             if (!CompleteAdditionalAuthentication("unlock"))
             {
                 _vault.Dispose();
@@ -151,6 +153,7 @@ public partial class MainWindow : Window
             LoadFiles();
             SetUnlockedState(isUnlocked: true);
             SetStatus(_vault.CreatedNewKey ? "Vault initialized and unlocked." : "Vault unlocked.");
+            ShowToast(_vault.CreatedNewKey ? "Vault initialized." : "Vault unlocked.");
         }
         catch (Exception ex)
         {
@@ -161,7 +164,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private LockeritVault UnlockVaultWithMasterPasswordIfRequired(LockeritPaths paths)
+    private LockeritVault UnlockVaultWithLegacyMasterPasswordIfRequired(LockeritPaths paths)
     {
         try
         {
@@ -175,7 +178,11 @@ public partial class MainWindow : Window
                 throw;
             }
 
-            return LockeritVault.UnlockWithCurrentWindowsUser(paths, masterPassword);
+            var vault = LockeritVault.UnlockWithCurrentWindowsUser(paths, masterPassword);
+            vault.DisableMasterPasswordForCurrentUser();
+            SetStatus("Legacy master password removed from this Windows keyring.");
+            ShowToast("Legacy master password removed.");
+            return vault;
         }
     }
 
@@ -311,6 +318,7 @@ public partial class MainWindow : Window
             var result = vault.ExportRecoveryKit(dialog.FileName, recoveryRequest.Passphrase, recoveryRequest.PassphraseHint);
             SetRecoveryStatus($"Recovery Kit exported to {result.FilePath}. Keep it separate from the vault database and remember the recovery passphrase.");
             SetStatus("Recovery Kit exported.");
+            ShowToast("Recovery Kit exported.");
         }
         catch (Exception ex)
         {
@@ -336,91 +344,21 @@ public partial class MainWindow : Window
             var vault = EnsureVault();
             if (vault.KeyProtectionMode == KeyProtectionMode.WindowsUserWithMasterPassword)
             {
-                var masterPassword = MasterPasswordDialog.ShowForSetup(this);
-                if (masterPassword is null)
-                {
-                    SetStatus("Keyring refresh cancelled.");
-                    return;
-                }
-
-                vault.ReprotectWindowsKeyringForCurrentUser(masterPassword);
+                vault.DisableMasterPasswordForCurrentUser();
             }
             else
             {
                 vault.ReprotectWindowsKeyringForCurrentUser();
             }
 
-            SetRecoveryStatus($"Local keyring refreshed for {_account.DisplayName}. Keyring: {vault.Paths.KeyFilePath}");
-            ApplyMasterPasswordStatus();
-            ApplyUnlockDiagnostics();
+            SetRecoveryStatus($"Local keyring refreshed for {_account.DisplayName}.");
             SetStatus("Local keyring refreshed.");
+            ShowToast("Local keyring refreshed.");
         }
         catch (Exception ex)
         {
             ShowError("Keyring refresh failed.", ex);
             SetStatus("Keyring refresh failed.");
-        }
-    }
-
-    private async void SetMasterPasswordButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            if (!await VerifySensitiveActionAsync("set master password"))
-            {
-                return;
-            }
-
-            var masterPassword = MasterPasswordDialog.ShowForSetup(this);
-            if (masterPassword is null)
-            {
-                SetStatus("Master password setup cancelled.");
-                return;
-            }
-
-            EnsureVault().EnableMasterPasswordForCurrentUser(masterPassword);
-            ApplyMasterPasswordStatus();
-            ApplyUnlockDiagnostics();
-            SetStatus("Master password enabled.");
-        }
-        catch (Exception ex)
-        {
-            ShowError("Master password update failed.", ex);
-            SetStatus("Master password update failed.");
-        }
-    }
-
-    private async void RemoveMasterPasswordButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            if (!await VerifySensitiveActionAsync("remove master password"))
-            {
-                return;
-            }
-
-            var result = LockeritMessageDialog.Show(
-                this,
-                "Remove the LockerIt master password from this local keyring? Windows account protection will remain enabled.",
-                "Lockerit",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-
-            if (result != MessageBoxResult.Yes)
-            {
-                SetStatus("Master password removal cancelled.");
-                return;
-            }
-
-            EnsureVault().DisableMasterPasswordForCurrentUser();
-            ApplyMasterPasswordStatus();
-            ApplyUnlockDiagnostics();
-            SetStatus("Master password removed.");
-        }
-        catch (Exception ex)
-        {
-            ShowError("Master password removal failed.", ex);
-            SetStatus("Master password removal failed.");
         }
     }
 
@@ -578,6 +516,7 @@ public partial class MainWindow : Window
         {
             var result = LockeritVault.ImportRecoveryKitForCurrentWindowsUser(paths, dialog.FileName, passphrase);
             SetRecoveryStatus($"Recovery Kit imported. A new Windows-protected keyring was created for {_account.DisplayName}. Kit created: {result.CreatedAtUtc.LocalDateTime:g}.");
+            ShowToast("Recovery Kit imported.");
 
             if (_vault is null || unlockAfterImport)
             {
@@ -585,7 +524,6 @@ public partial class MainWindow : Window
                 return;
             }
 
-            ApplyUnlockDiagnostics();
             SetStatus("Recovery Kit imported and local keyring updated.");
         }
         catch (Exception ex)
@@ -972,6 +910,7 @@ public partial class MainWindow : Window
             LoadPasswords(secret.Id);
             CloseEntryModal();
             SetStatus("Password saved.");
+            ShowToast("Password saved.");
         }
         catch (Exception ex)
         {
@@ -1011,6 +950,7 @@ public partial class MainWindow : Window
             ClearForm();
             CloseEntryModal();
             SetStatus("Password deleted.");
+            ShowToast("Password deleted.");
         }
         catch (Exception ex)
         {
@@ -1019,13 +959,8 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void RevealButton_Click(object sender, RoutedEventArgs e)
+    private void RevealButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!_isPasswordRevealed && !await VerifySensitiveActionAsync("reveal a password"))
-        {
-            return;
-        }
-
         SetPasswordReveal(!_isPasswordRevealed);
     }
 
@@ -1040,13 +975,8 @@ public partial class MainWindow : Window
         CopyText(UserNameInput.Text, "Username copied.");
     }
 
-    private async void CopyPasswordButton_Click(object sender, RoutedEventArgs e)
+    private void CopyPasswordButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!await VerifySensitiveActionAsync("copy a password"))
-        {
-            return;
-        }
-
         CopyText(ReadPassword(), "Password copied.");
     }
 
@@ -1058,15 +988,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void CopyPasswordRowButton_Click(object sender, RoutedEventArgs e)
+    private void CopyPasswordRowButton_Click(object sender, RoutedEventArgs e)
     {
         if (GetSecretFromSender(sender) is { } secret)
         {
-            if (!await VerifySensitiveActionAsync("copy a password"))
-            {
-                return;
-            }
-
             var fullSecret = EnsureVault().GetPassword(secret.Id);
             try
             {
@@ -1131,6 +1056,7 @@ public partial class MainWindow : Window
                 EnsureVault().SaveFileAttachment(file);
                 LoadFiles();
                 SetStatus("File encrypted and imported.");
+                ShowToast("File encrypted and imported.");
             }
             finally
             {
@@ -1144,7 +1070,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void ExportFileRowButton_Click(object sender, RoutedEventArgs e)
+    private void ExportFileRowButton_Click(object sender, RoutedEventArgs e)
     {
         if (GetFileFromSender(sender) is not { } fileSummary)
         {
@@ -1153,11 +1079,6 @@ public partial class MainWindow : Window
 
         try
         {
-            if (!await VerifySensitiveActionAsync("export an encrypted file"))
-            {
-                return;
-            }
-
             var file = EnsureVault().GetFileAttachment(fileSummary.Id);
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
@@ -1165,7 +1086,7 @@ public partial class MainWindow : Window
                 Filter = "All files (*.*)|*.*",
                 FileName = file.FileName,
                 OverwritePrompt = true,
-                Title = "Export file from LockerIt"
+                Title = "Download file from LockerIt"
             };
 
             if (dialog.ShowDialog(this) != true)
@@ -1178,6 +1099,7 @@ public partial class MainWindow : Window
             {
                 File.WriteAllBytes(dialog.FileName, file.Content);
                 SetStatus("File exported.");
+                ShowToast("File downloaded.");
             }
             finally
             {
@@ -1292,6 +1214,7 @@ public partial class MainWindow : Window
 
         SetUnlockedState(isUnlocked: false);
         SetStatus(status);
+        ShowToast(status);
     }
 
     private void ClearForm()
@@ -1357,8 +1280,6 @@ public partial class MainWindow : Window
             _autoLockTimer.Stop();
         }
 
-        ApplyUnlockDiagnostics();
-        ApplyMasterPasswordStatus();
         ApplyAuthPolicyStatus();
         ApplyNavigationState();
     }
@@ -1462,57 +1383,21 @@ public partial class MainWindow : Window
         VaultPathInput.Text = paths.DatabasePath;
         UnlockVaultPathText.Text = paths.DatabasePath;
         VaultPathStatusText.Text = paths.DatabasePath;
-        SetRecoveryStatus($"Vault database: {paths.DatabasePath}. Local keyring: {paths.KeyFilePath}");
-
-        ApplyUnlockDiagnostics();
+        SetRecoveryStatus("Export a Recovery Kit before moving this vault to another Windows account.");
+        ApplyLoginRecoveryVisibility(paths);
     }
 
-    private void ApplyUnlockDiagnostics()
+    private void ApplyLoginRecoveryVisibility(LockeritPaths paths)
     {
-        if (UnlockDiagnosticText is null)
+        if (LoginRecoveryPanel is null || LoginRecoveryColumn is null || LoginRecoverySpacerColumn is null)
         {
             return;
         }
 
-        var paths = _vault?.Paths ?? ResolveVaultPaths();
-        var state = _vault is null ? "Locked" : "Unlocked";
-        var keyState = _vault is null
-            ? "The protected key has not been opened in this session."
-            : _vault.KeyProtectionMode == KeyProtectionMode.WindowsUserWithMasterPassword
-                ? "The protected key was unsealed by Windows DPAPI plus LockerIt master password."
-                : "The protected key was unsealed by Windows DPAPI for the current user.";
-
-        UnlockDiagnosticText.Text =
-            $"{state}. Account: {_account.DisplayName}. SID: {_account.Sid ?? "unavailable"}. Vault: {paths.DatabasePath}. {keyState}";
-    }
-
-    private void ApplyMasterPasswordStatus()
-    {
-        if (MasterPasswordStatusText is null)
-        {
-            return;
-        }
-
-        if (_vault is null)
-        {
-            MasterPasswordStatusText.Text = "Unlock the vault to manage the master password.";
-            if (RemoveMasterPasswordButton is not null)
-            {
-                RemoveMasterPasswordButton.IsEnabled = false;
-            }
-
-            return;
-        }
-
-        var enabled = _vault.KeyProtectionMode == KeyProtectionMode.WindowsUserWithMasterPassword;
-        MasterPasswordStatusText.Text = enabled
-            ? "Enabled. This vault requires Windows authorization and the LockerIt master password on unlock."
-            : "Disabled. This vault currently uses Windows account protection only.";
-
-        if (RemoveMasterPasswordButton is not null)
-        {
-            RemoveMasterPasswordButton.IsEnabled = enabled;
-        }
+        var showRecovery = !File.Exists(paths.KeyFilePath);
+        LoginRecoveryPanel.Visibility = showRecovery ? Visibility.Visible : Visibility.Collapsed;
+        LoginRecoveryColumn.Width = showRecovery ? new GridLength(260) : new GridLength(0);
+        LoginRecoverySpacerColumn.Width = showRecovery ? new GridLength(28) : new GridLength(0);
     }
 
     private void ApplyAuthPolicyStatus()
@@ -1542,7 +1427,7 @@ public partial class MainWindow : Window
         var enabled = policy.IsTotpEnabled;
         TotpStatusText.Text = enabled
             ? $"Enabled. AuthPolicy requires Windows authorization and an authenticator code before the vault opens. Recovery codes remaining: {policy.ActiveRecoveryCodeCount}."
-            : "Disabled. AuthPolicy currently relies on Windows authorization, plus master password if enabled.";
+            : "Disabled. AuthPolicy currently relies on Windows authorization only.";
 
         if (DisableTotpButton is not null)
         {
@@ -1708,16 +1593,25 @@ public partial class MainWindow : Window
         SetUnlockedState(isUnlocked: true);
         UnlockButton.IsEnabled = true;
         SetStatus("Recovery Kit imported and vault unlocked.");
+        ShowToast("Recovery Kit imported.");
     }
 
     private void ConfigureTrayIcon()
     {
+        var trayMenu = new Forms.ContextMenuStrip
+        {
+            BackColor = Drawing.Color.FromArgb(18, 19, 17),
+            ForeColor = Drawing.Color.FromArgb(242, 239, 231),
+            ShowImageMargin = false,
+            Renderer = new DarkTrayMenuRenderer()
+        };
+
         _trayIcon = new Forms.NotifyIcon
         {
             Icon = CreateTrayIcon(),
             Text = "Lockerit",
             Visible = true,
-            ContextMenuStrip = new Forms.ContextMenuStrip()
+            ContextMenuStrip = trayMenu
         };
 
         _trayIcon.ContextMenuStrip.Items.Add("Show Lockerit", null, (_, _) => Dispatcher.Invoke(ShowFromTray));
@@ -1764,18 +1658,25 @@ public partial class MainWindow : Window
         graphics.Clear(Drawing.Color.Transparent);
 
         using var background = new Drawing.SolidBrush(Drawing.Color.FromArgb(14, 15, 13));
+        using var surface = new Drawing.SolidBrush(Drawing.Color.FromArgb(32, 33, 30));
         using var primary = new Drawing.SolidBrush(Drawing.Color.FromArgb(217, 119, 87));
-        using var accent = new Drawing.SolidBrush(Drawing.Color.FromArgb(122, 167, 217));
-        using var pen = new Drawing.Pen(Drawing.Color.FromArgb(217, 119, 87), 2);
+        using var primaryDark = new Drawing.SolidBrush(Drawing.Color.FromArgb(37, 28, 23));
+        using var border = new Drawing.Pen(Drawing.Color.FromArgb(116, 69, 50), 2);
 
-        graphics.FillEllipse(background, 1, 1, 30, 30);
-        graphics.DrawEllipse(pen, 2, 2, 28, 28);
-        graphics.FillRectangle(primary, 10, 14, 12, 10);
-        graphics.FillRectangle(primary, 12, 10, 8, 5);
-        graphics.FillEllipse(background, 14, 17, 4, 4);
-        graphics.FillRectangle(background, 15, 20, 2, 4);
-        graphics.FillRectangle(accent, 22, 9, 6, 2);
-        graphics.FillRectangle(accent, 24, 7, 2, 6);
+        using var outer = RoundedRectangle(2, 2, 28, 28, 9);
+        graphics.FillPath(background, outer);
+        graphics.DrawPath(border, outer);
+
+        using var inner = RoundedRectangle(7, 7, 18, 18, 6);
+        graphics.FillPath(primaryDark, inner);
+        graphics.FillRectangle(primary, 11, 15, 10, 7);
+        using (var shackle = new Drawing.Pen(Drawing.Color.FromArgb(242, 239, 231), 2.2f))
+        {
+            graphics.DrawArc(shackle, 10, 9, 12, 13, 200, 140);
+        }
+
+        graphics.FillEllipse(surface, 14, 17, 4, 4);
+        graphics.FillRectangle(surface, 15, 20, 2, 3);
 
         var handle = bitmap.GetHicon();
         try
@@ -1818,6 +1719,7 @@ public partial class MainWindow : Window
             System.Windows.Clipboard.SetText(value);
             _ = ClearClipboardIfUnchangedAsync(value);
             SetStatus(status);
+            ShowToast(status);
         }
         catch (ExternalException ex)
         {
@@ -1871,6 +1773,45 @@ public partial class MainWindow : Window
         {
             RecoveryStatusText.Text = message;
         }
+    }
+
+    private static Drawing.Drawing2D.GraphicsPath RoundedRectangle(float x, float y, float width, float height, float radius)
+    {
+        var path = new Drawing.Drawing2D.GraphicsPath();
+        var diameter = radius * 2;
+        path.AddArc(x, y, diameter, diameter, 180, 90);
+        path.AddArc(x + width - diameter, y, diameter, diameter, 270, 90);
+        path.AddArc(x + width - diameter, y + height - diameter, diameter, diameter, 0, 90);
+        path.AddArc(x, y + height - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+
+    private void ShowToast(string message)
+    {
+        if (ToastSurface is null || ToastText is null)
+        {
+            return;
+        }
+
+        ToastText.Text = message;
+        ToastSurface.Visibility = Visibility.Visible;
+        ToastSurface.Opacity = 1;
+        _toastTimer.Stop();
+        _toastTimer.Start();
+    }
+
+    private void ToastTimer_Tick(object? sender, EventArgs e)
+    {
+        _toastTimer.Stop();
+
+        if (ToastSurface is null)
+        {
+            return;
+        }
+
+        ToastSurface.Opacity = 0;
+        ToastSurface.Visibility = Visibility.Collapsed;
     }
 
     private void ShowError(string title, Exception exception)
@@ -1990,3 +1931,28 @@ internal sealed record DocumentationItem(
     string Description,
     string RelativePath,
     string FullPath);
+
+internal sealed class DarkTrayMenuRenderer : Forms.ToolStripProfessionalRenderer
+{
+    protected override void OnRenderToolStripBorder(Forms.ToolStripRenderEventArgs e)
+    {
+        using var pen = new Drawing.Pen(Drawing.Color.FromArgb(52, 53, 47));
+        e.Graphics.DrawRectangle(pen, 0, 0, e.ToolStrip.Width - 1, e.ToolStrip.Height - 1);
+    }
+
+    protected override void OnRenderMenuItemBackground(Forms.ToolStripItemRenderEventArgs e)
+    {
+        var color = e.Item.Selected
+            ? Drawing.Color.FromArgb(37, 28, 23)
+            : Drawing.Color.FromArgb(18, 19, 17);
+
+        using var brush = new Drawing.SolidBrush(color);
+        e.Graphics.FillRectangle(brush, new Drawing.Rectangle(Drawing.Point.Empty, e.Item.Size));
+    }
+
+    protected override void OnRenderSeparator(Forms.ToolStripSeparatorRenderEventArgs e)
+    {
+        using var pen = new Drawing.Pen(Drawing.Color.FromArgb(52, 53, 47));
+        e.Graphics.DrawLine(pen, 8, e.Item.Height / 2, e.Item.Width - 8, e.Item.Height / 2);
+    }
+}

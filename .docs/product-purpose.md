@@ -63,7 +63,7 @@ journey
       Import Recovery Kit on another PC: 4: User
       Create new local keyring: 5: App
     section Harden locally
-      Enable master password: 4: User
+      Migrate legacy master password: 4: App
       Enable authenticator app: 4: User
       Save recovery codes: 5: User
       Authorize sensitive action: 5: User

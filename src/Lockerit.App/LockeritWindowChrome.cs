@@ -63,7 +63,7 @@ internal static class LockeritWindowChrome
         var shell = new Grid();
         shell.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         shell.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        shell.Children.Add(CreateTitleBar(window, canResize));
+        shell.Children.Add(CreateTitleBar(window, showWindowControls: canResize));
         Grid.SetRow(body, 1);
         shell.Children.Add(body);
 
@@ -71,7 +71,7 @@ internal static class LockeritWindowChrome
         window.Content = frame;
     }
 
-    private static Grid CreateTitleBar(Window window, bool canResize)
+    private static Grid CreateTitleBar(Window window, bool showWindowControls)
     {
         var titleBar = new Grid
         {
@@ -90,7 +90,7 @@ internal static class LockeritWindowChrome
                 return;
             }
 
-            if (e.ClickCount == 2 && canResize)
+            if (e.ClickCount == 2 && showWindowControls)
             {
                 ToggleMaximize(window);
                 return;
@@ -132,11 +132,12 @@ internal static class LockeritWindowChrome
         };
         Grid.SetColumn(controls, 2);
 
-        controls.Children.Add(CreateTitleButton("Minimize", "M5,12 L19,12", BrushFrom(Ink), (_, _) => window.WindowState = WindowState.Minimized));
+        if (showWindowControls)
+        {
+            controls.Children.Add(CreateTitleButton("Minimize", "M5,12 L19,12", BrushFrom(Ink), (_, _) => window.WindowState = WindowState.Minimized));
 
-        var maximizeButton = CreateTitleButton("Maximize", "M6,6 L18,6 L18,18 L6,18 Z", BrushFrom(Ink), (_, _) => ToggleMaximize(window));
-        maximizeButton.IsEnabled = canResize;
-        controls.Children.Add(maximizeButton);
+            controls.Children.Add(CreateTitleButton("Maximize", "M6,6 L18,6 L18,18 L6,18 Z", BrushFrom(Ink), (_, _) => ToggleMaximize(window)));
+        }
 
         controls.Children.Add(CreateTitleButton("Close", "M7,7 L17,17 M17,7 L7,17", BrushFrom(Primary), (_, _) => window.Close(), isClose: true));
         titleBar.Children.Add(controls);
