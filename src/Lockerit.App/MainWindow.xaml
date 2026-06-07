@@ -434,21 +434,199 @@
             </DockPanel>
 
             <Grid Grid.Row="1" Margin="28">
-                <Border Width="720"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Background="{StaticResource SurfaceBrush}"
-                        BorderBrush="{StaticResource BorderBrushSoft}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="34">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition x:Name="LoginRecoverySpacerColumn" Width="28" />
-                            <ColumnDefinition x:Name="LoginRecoveryColumn" Width="260" />
-                        </Grid.ColumnDefinitions>
+                <Grid MaxWidth="1060"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.04*" MinWidth="430" />
+                        <ColumnDefinition Width="28" />
+                        <ColumnDefinition Width="0.96*" MinWidth="390" />
+                    </Grid.ColumnDefinitions>
 
+                    <Border Grid.Column="0"
+                            Background="{StaticResource SurfaceBrush}"
+                            BorderBrush="{StaticResource BorderBrushSoft}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="30">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Release notes"
+                                           Style="{StaticResource CaptionText}" />
+                                <TextBlock Text="What's new in LockerIt"
+                                           FontSize="28"
+                                           FontWeight="SemiBold"
+                                           Margin="0,8,0,0" />
+                                <TextBlock Text="Offline-first vault updates focused on account-bound unlock, recoverability and a calmer desktop experience."
+                                           TextWrapping="Wrap"
+                                           Foreground="{StaticResource MutedBrush}"
+                                           FontSize="14"
+                                           Margin="0,12,0,22" />
+
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,16">
+                                        <Border DockPanel.Dock="Left"
+                                                Width="32"
+                                                Height="32"
+                                                CornerRadius="8"
+                                                Background="#251C17"
+                                                BorderBrush="#744532"
+                                                BorderThickness="1"
+                                                Margin="0,0,12,0">
+                                            <Path Width="15"
+                                                  Height="15"
+                                                  Stretch="Uniform"
+                                                  Fill="{StaticResource PrimaryBrush}"
+                                                  Data="M12,3 L19,6 L19,11 C19,15.7 16.2,19.6 12,21 C7.8,19.6 5,15.7 5,11 L5,6 Z M9,12 L11,14 L15.5,9.5" />
+                                        </Border>
+                                        <StackPanel>
+                                            <TextBlock Text="AuthPolicy two-factor unlock"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Text="Authenticator codes protect the vault before the workspace opens."
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="12"
+                                                       Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+
+                                    <DockPanel Margin="0,0,0,16">
+                                        <Border DockPanel.Dock="Left"
+                                                Width="32"
+                                                Height="32"
+                                                CornerRadius="8"
+                                                Background="#251C17"
+                                                BorderBrush="#744532"
+                                                BorderThickness="1"
+                                                Margin="0,0,12,0">
+                                            <Path Width="15"
+                                                  Height="15"
+                                                  Stretch="Uniform"
+                                                  Stroke="{StaticResource PrimaryBrush}"
+                                                  StrokeThickness="1.8"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round"
+                                                  Data="M5,3 L14,3 L19,8 L19,21 L5,21 Z M14,3 L14,8 L19,8" />
+                                        </Border>
+                                        <StackPanel>
+                                            <TextBlock Text="Encrypted file attachments"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Text="Files can be imported after unlock without asking for another authorization prompt."
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="12"
+                                                       Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+
+                                    <DockPanel Margin="0,0,0,16">
+                                        <Border DockPanel.Dock="Left"
+                                                Width="32"
+                                                Height="32"
+                                                CornerRadius="8"
+                                                Background="#251C17"
+                                                BorderBrush="#744532"
+                                                BorderThickness="1"
+                                                Margin="0,0,12,0">
+                                            <Path Width="15"
+                                                  Height="15"
+                                                  Stretch="Uniform"
+                                                  Stroke="{StaticResource PrimaryBrush}"
+                                                  StrokeThickness="1.8"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round"
+                                                  Data="M12,4 L12,16 M8,12 L12,16 L16,12 M5,20 L19,20" />
+                                        </Border>
+                                        <StackPanel>
+                                            <TextBlock Text="Recovery Kit for new devices"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Text="Move the vault database and import the kit to create a new Windows keyring."
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="12"
+                                                       Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+
+                                    <DockPanel>
+                                        <Border DockPanel.Dock="Left"
+                                                Width="32"
+                                                Height="32"
+                                                CornerRadius="8"
+                                                Background="#251C17"
+                                                BorderBrush="#744532"
+                                                BorderThickness="1"
+                                                Margin="0,0,12,0">
+                                            <Path Width="15"
+                                                  Height="15"
+                                                  Stretch="Uniform"
+                                                  Stroke="{StaticResource PrimaryBrush}"
+                                                  StrokeThickness="1.8"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round"
+                                                  Data="M4,12 L8,16 L20,4 M4,19 L20,19" />
+                                        </Border>
+                                        <StackPanel>
+                                            <TextBlock Text="Windows 11+ desktop polish"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Text="Custom window chrome, tray behavior, toasts and a focused vault workspace."
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       TextWrapping="Wrap"
+                                                       FontSize="12"
+                                                       Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <DockPanel Grid.Row="1" Margin="0,26,0,0" LastChildFill="False">
+                                <TextBlock Text="Windows 11+"
+                                           DockPanel.Dock="Left"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource SubtleBrush}"
+                                           FontSize="12" />
+                                <Button DockPanel.Dock="Right"
+                                        Style="{StaticResource BareIconButton}"
+                                        Width="88"
+                                        Height="32"
+                                        HorizontalAlignment="Right"
+                                        ToolTip="Open LockerIt on GitHub"
+                                        Click="OpenGitHubButton_Click">
+                                    <StackPanel Orientation="Horizontal"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center">
+                                        <Path Width="15"
+                                              Height="15"
+                                              Margin="0,0,7,0"
+                                              Stretch="Uniform"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              StrokeThickness="1.8"
+                                              StrokeStartLineCap="Round"
+                                              StrokeEndLineCap="Round"
+                                              StrokeLineJoin="Round"
+                                              Data="M15,22 L15,18 C15.1,17 14.7,16.2 14.2,15.8 C17.4,15.4 20,14.2 20,9 C20,7.6 19.5,6.4 18.7,5.4 C18.8,5 19.1,3.7 18.6,2 C18.6,2 17.5,1.7 15,3.3 C14,3 13,2.9 12,2.9 C11,2.9 10,3 9,3.3 C6.5,1.7 5.4,2 5.4,2 C4.9,3.7 5.2,5 5.3,5.4 C4.5,6.4 4,7.6 4,9 C4,14.2 6.6,15.4 9.8,15.8 C9.4,16.1 9,16.7 8.9,17.5 C8.1,17.9 6.2,18.4 5,16.3 C5,16.3 4.3,15 3,14.9 C3,14.9 1.8,14.9 2.9,15.7 C2.9,15.7 3.7,16.1 4.2,17.6 C4.2,17.6 4.9,20 8.8,19.2 L8.8,22" />
+                                        <TextBlock Text="GitHub"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    </StackPanel>
+                                </Button>
+                            </DockPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Column="2"
+                            Background="{StaticResource SurfaceBrush}"
+                            BorderBrush="{StaticResource BorderBrushSoft}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="30">
                         <StackPanel>
                             <TextBlock Text="Unlock your vault"
                                        FontSize="28"
@@ -512,51 +690,51 @@
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                            FontWeight="SemiBold" />
                             </Button>
-                        </StackPanel>
 
-                        <Border x:Name="LoginRecoveryPanel"
-                                Grid.Column="2"
-                                Background="#121311"
-                                BorderBrush="{StaticResource BorderBrushSoft}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="18">
-                            <StackPanel>
-                                <TextBlock Text="New device"
-                                           Style="{StaticResource CaptionText}" />
-                                <TextBlock Text="Restore access"
-                                           FontSize="20"
-                                           FontWeight="SemiBold"
-                                           Margin="0,10,0,0" />
-                                <TextBlock Text="Use this only when this PC does not have the local keyring for an existing vault."
-                                           Foreground="{StaticResource MutedBrush}"
-                                           TextWrapping="Wrap"
-                                           FontSize="13"
-                                           Margin="0,8,0,14" />
-                                <Button x:Name="LoginImportRecoveryButton"
-                                        HorizontalAlignment="Center"
-                                        MinWidth="190"
-                                        ToolTip="Import a Recovery Kit before unlocking a vault on this Windows account"
-                                        Click="LoginImportRecoveryButton_Click">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Path Width="14"
-                                              Height="14"
-                                              Margin="0,0,8,0"
-                                              Stretch="Uniform"
-                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                              StrokeThickness="1.8"
-                                              StrokeStartLineCap="Round"
-                                              StrokeEndLineCap="Round"
-                                              StrokeLineJoin="Round"
-                                              Data="M12,4 L12,16 M8,12 L12,16 L16,12 M5,20 L19,20" />
-                                        <TextBlock Text="Import Recovery Kit"
-                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
-                        </Border>
-                    </Grid>
-                </Border>
+                            <Border x:Name="LoginRecoveryPanel"
+                                    Background="#121311"
+                                    BorderBrush="{StaticResource BorderBrushSoft}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16"
+                                    Margin="0,18,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="New device"
+                                               Style="{StaticResource CaptionText}" />
+                                    <TextBlock Text="Restore access"
+                                               FontSize="18"
+                                               FontWeight="SemiBold"
+                                               Margin="0,8,0,0" />
+                                    <TextBlock Text="Import a Recovery Kit when this PC does not have the local keyring for an existing vault."
+                                               Foreground="{StaticResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               FontSize="12"
+                                               Margin="0,7,0,13" />
+                                    <Button x:Name="LoginImportRecoveryButton"
+                                            HorizontalAlignment="Left"
+                                            MinWidth="176"
+                                            ToolTip="Import a Recovery Kit before unlocking a vault on this Windows account"
+                                            Click="LoginImportRecoveryButton_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Width="14"
+                                                  Height="14"
+                                                  Margin="0,0,8,0"
+                                                  Stretch="Uniform"
+                                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                  StrokeThickness="1.8"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round"
+                                                  Data="M12,4 L12,16 M8,12 L12,16 L16,12 M5,20 L19,20" />
+                                            <TextBlock Text="Import Recovery Kit"
+                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </Grid>
 
             <Border Grid.Row="2"
@@ -754,21 +932,6 @@
                                           Stretch="Uniform"
                                           Data="M5,3 L14,3 L19,8 L19,21 L5,21 Z M14,3 L14,8 L19,8" />
                                     <TextBlock Text="Files"
-                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                </DockPanel>
-                            </Button>
-                            <Button x:Name="DocumentationNavButton"
-                                    Style="{StaticResource NavButton}"
-                                    Click="DocumentationNavButton_Click">
-                                <DockPanel>
-                                    <Path DockPanel.Dock="Left"
-                                          Width="15"
-                                          Height="15"
-                                          Margin="0,0,10,0"
-                                          Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                          Stretch="Uniform"
-                                          Data="M5,3 L17,3 C18.1,3 19,3.9 19,5 L19,21 L12,18 L5,21 Z M8,7 L16,7 M8,10 L16,10 M8,13 L13,13" />
-                                    <TextBlock Text="Documentation"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                                 </DockPanel>
                             </Button>
@@ -1351,103 +1514,6 @@
                                     </StackPanel>
                                 </Grid>
                             </DockPanel>
-                        </Border>
-                    </Grid>
-
-                    <Grid x:Name="DocumentationContent" Visibility="Collapsed">
-                        <Border Background="{StaticResource SurfaceBrush}"
-                                BorderBrush="{StaticResource BorderBrushSoft}"
-                                BorderThickness="1"
-                                CornerRadius="8">
-                            <Grid Margin="20">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" />
-                                </Grid.RowDefinitions>
-
-                                <StackPanel Margin="0,0,0,16">
-                                    <TextBlock Text="Documentation"
-                                               FontSize="22"
-                                               FontWeight="SemiBold" />
-                                    <TextBlock x:Name="DocumentationStatusText"
-                                               Foreground="{StaticResource MutedBrush}"
-                                               FontSize="12"
-                                               Margin="0,4,0,0" />
-                                </StackPanel>
-
-                                <Grid Grid.Row="1">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="300" />
-                                        <ColumnDefinition Width="16" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <Border Background="#121311"
-                                            BorderBrush="{StaticResource BorderBrushSoft}"
-                                            BorderThickness="1"
-                                            CornerRadius="8"
-                                            Padding="10">
-                                        <ListBox x:Name="DocumentationList"
-                                                 SelectionChanged="DocumentationList_SelectionChanged"
-                                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                                            <ListBox.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Border Padding="12,10" MinHeight="58">
-                                                        <StackPanel>
-                                                            <TextBlock Text="{Binding Title}"
-                                                                       FontWeight="SemiBold"
-                                                                       TextTrimming="CharacterEllipsis" />
-                                                            <TextBlock Text="{Binding Description}"
-                                                                       Foreground="{StaticResource SubtleBrush}"
-                                                                       FontSize="11"
-                                                                       TextWrapping="Wrap"
-                                                                       Margin="0,3,0,0" />
-                                                        </StackPanel>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ListBox.ItemTemplate>
-                                        </ListBox>
-                                    </Border>
-
-                                    <Border Grid.Column="2"
-                                            Background="#121311"
-                                            BorderBrush="{StaticResource BorderBrushSoft}"
-                                            BorderThickness="1"
-                                            CornerRadius="8">
-                                        <Grid>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="*" />
-                                            </Grid.RowDefinitions>
-
-                                            <DockPanel Margin="18,16,18,12">
-                                                <TextBlock x:Name="DocumentationTitleText"
-                                                           FontSize="18"
-                                                           FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock x:Name="DocumentationPathText"
-                                                           DockPanel.Dock="Bottom"
-                                                           Foreground="{StaticResource SubtleBrush}"
-                                                           FontSize="12"
-                                                           Margin="0,4,0,0"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </DockPanel>
-
-                                            <TextBox x:Name="DocumentationViewer"
-                                                     Grid.Row="1"
-                                                     Margin="18,0,18,18"
-                                                     IsReadOnly="True"
-                                                     AcceptsReturn="True"
-                                                     TextWrapping="Wrap"
-                                                     VerticalScrollBarVisibility="Auto"
-                                                     HorizontalScrollBarVisibility="Disabled"
-                                                     VerticalContentAlignment="Top"
-                                                     FontFamily="Consolas"
-                                                     FontSize="13" />
-                                        </Grid>
-                                    </Border>
-                                </Grid>
-                            </Grid>
                         </Border>
                     </Grid>
 

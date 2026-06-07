@@ -1,10 +1,13 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Shell;
+using Forms = System.Windows.Forms;
 using WpfBrush = System.Windows.Media.Brush;
 using WpfBrushes = System.Windows.Media.Brushes;
 using WpfButton = System.Windows.Controls.Button;
@@ -26,6 +29,7 @@ internal static class LockeritWindowChrome
     private const string Muted = "#A9A39A";
     private const string Primary = "#D97757";
     private const string PrimaryHover = "#251C17";
+    private const int WmGetMinMaxInfo = 0x0024;
 
     public static void Install(Window window, UIElement body, bool canResize)
     {
@@ -41,6 +45,14 @@ internal static class LockeritWindowChrome
         window.Foreground = BrushFrom(Ink);
         window.FontFamily = new WpfFontFamily("Segoe UI");
         window.SnapsToDevicePixels = true;
+        window.SourceInitialized += (_, _) =>
+        {
+            if (PresentationSource.FromVisual(window) is HwndSource source)
+            {
+                source.AddHook(WindowProc);
+            }
+        };
+
         WindowChrome.SetWindowChrome(
             window,
             new WindowChrome
@@ -253,8 +265,51 @@ internal static class LockeritWindowChrome
             : WindowState.Maximized;
     }
 
+    private static IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WmGetMinMaxInfo)
+        {
+            ApplyMonitorWorkArea(hwnd, lParam);
+            handled = true;
+        }
+
+        return IntPtr.Zero;
+    }
+
+    private static void ApplyMonitorWorkArea(IntPtr hwnd, IntPtr lParam)
+    {
+        var screen = Forms.Screen.FromHandle(hwnd);
+        var workArea = screen.WorkingArea;
+        var monitorArea = screen.Bounds;
+        var minMaxInfo = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+
+        minMaxInfo.MaxPosition.X = workArea.Left - monitorArea.Left;
+        minMaxInfo.MaxPosition.Y = workArea.Top - monitorArea.Top;
+        minMaxInfo.MaxSize.X = workArea.Width;
+        minMaxInfo.MaxSize.Y = workArea.Height;
+
+        Marshal.StructureToPtr(minMaxInfo, lParam, true);
+    }
+
     internal static SolidColorBrush BrushFrom(string color)
     {
         return new SolidColorBrush((WpfColor)WpfColorConverter.ConvertFromString(color));
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X;
+        public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MinMaxInfo
+    {
+        public NativePoint Reserved;
+        public NativePoint MaxSize;
+        public NativePoint MaxPosition;
+        public NativePoint MinTrackSize;
+        public NativePoint MaxTrackSize;
     }
 }
