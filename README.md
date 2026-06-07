@@ -2,7 +2,7 @@
 
 LockerIt is a Windows-first, standalone encrypted vault for passwords and secure file attachments. It is intentionally local-first: no WebAPI, no cloud dependency, no background sync service, and no remote account model. The vault belongs to the Windows account that unlocks it.
 
-The project is built with .NET 10, WPF, SQLite, Windows DPAPI, Windows Hello/PIN/biometric consent, and AES-256-GCM encrypted payloads.
+The project is built with .NET 10, WPF, SQLite, Windows DPAPI, Windows Hello/PIN/biometric consent, TOTP AuthPolicy gates, and AES-256-GCM encrypted payloads.
 
 ## Why LockerIt Exists
 
@@ -19,6 +19,7 @@ The first product target is a beautiful dark desktop vault that feels modern, di
 - No plaintext secrets in SQLite.
 - Windows account boundary for daily unlock.
 - Explicit cross-device recovery through a passphrase-protected Recovery Kit.
+- Local AuthPolicy for optional authenticator app verification.
 - Small dependency footprint and locked package restore.
 - UI that feels like a real product, not an admin sample app.
 
@@ -33,7 +34,9 @@ The first product target is a beautiful dark desktop vault that feels modern, di
 | Local keyring | 256-bit vault master key protected with Windows DPAPI CurrentUser | Implemented |
 | Recovery | Export/import Recovery Kit, optional passphrase hint and re-protect local keyring | Implemented |
 | Master password | Optional local second factor after Windows authorization | Implemented |
-| Secure files | Encrypted file attachments with import/export/delete | Implemented |
+| AuthPolicy 2FA | Encrypted vault policy with TOTP QR setup, manual setup key and one-time recovery codes | Implemented |
+| Secure files | Encrypted file attachments with import/export/delete, search and category filter | Implemented |
+| Documentation | In-app documentation workspace for README, `.docs/`, contribution guide and license | Implemented |
 | Session hardening | 15-minute inactivity auto-lock and Windows verification for sensitive actions | Implemented |
 | Storage settings | Configurable vault database path | Implemented |
 | Smoke tests | End-to-end core test for CRUD, encryption, recovery and keyring loss | Implemented |
@@ -52,6 +55,8 @@ flowchart LR
     Core --> Store["SQLite vault database"]
     Core --> Keyring["DPAPI CurrentUser keyring"]
     Core --> MasterPassword["Optional master password wrap"]
+    Core --> AuthPolicy["Encrypted AuthPolicy"]
+    AuthPolicy --> Totp["TOTP and one-time recovery codes"]
     Core --> Recovery["Recovery Kit service"]
     Core --> Files["Encrypted file attachments"]
     Recovery --> Kit["Passphrase-protected Recovery Kit file"]
@@ -83,6 +88,9 @@ mindmap
       Password fallback
       DPAPI keyring
       Optional master password
+      AuthPolicy
+      TOTP authenticator
+      Recovery codes
       AES-GCM encryption
       Clipboard auto-clear
       Auto-lock
@@ -95,6 +103,7 @@ mindmap
     Desktop
       Dark shell
       Sidebar settings
+      Documentation workspace
       Account menu
       Tray icon
     Developer
@@ -112,6 +121,7 @@ flowchart TB
         MainWindow["MainWindow.xaml"]
         Dialogs["Windows password and recovery dialogs"]
         Settings["Settings workspace"]
+        Documentation["Documentation workspace"]
         Tray["Windows tray integration"]
     end
 
@@ -121,6 +131,7 @@ flowchart TB
         Cipher["AesGcmVaultCipher"]
         KeyStore["WindowsProtectedKeyStore"]
         RecoveryService["RecoveryKitService"]
+        AuthPolicy["AuthPolicy + TOTP"]
         FileAttachments["Vault file attachments"]
     end
 
@@ -134,10 +145,12 @@ flowchart TB
     MainWindow --> Vault
     Dialogs --> Vault
     Settings --> Vault
+    Documentation --> MainWindow
     Tray --> MainWindow
     Vault --> Repository
     Vault --> KeyStore
     Vault --> RecoveryService
+    Vault --> AuthPolicy
     Vault --> FileAttachments
     Repository --> Cipher
     Repository --> Database
@@ -172,6 +185,8 @@ For custom database paths, the keyring is stored beside the selected database us
 Password entries and file attachment payloads are serialized as JSON, encrypted with AES-256-GCM, and only then written to SQLite. The database stores item ID, item kind, and encrypted payload. The keyring is protected with `DataProtectionScope.CurrentUser`, so another Windows profile cannot unprotect it directly.
 
 LockerIt can also add a master password to the local keyring. In that mode, Windows authorization is still required, but the DPAPI-unsealed keyring contains an AES-GCM wrapped vault key that also requires the LockerIt master password. This is a local second factor, not a cloud account or remote escrow system.
+
+LockerIt AuthPolicy adds another local gate after the vault key is opened: an encrypted policy item inside the vault can require a TOTP authenticator code before the workspace is shown. The setup dialog renders a local QR code and also provides the manual setup key/URI as fallback. The same policy stores hashed one-time recovery codes. Because AuthPolicy lives in the encrypted database, it moves with the vault across devices and remains protected by the vault master key.
 
 ## Recovery Model
 
@@ -264,6 +279,7 @@ The smoke test validates:
 - Recovery Kit passphrase hint metadata;
 - failed import with a wrong passphrase;
 - successful import after deleting the local keyring;
+- AuthPolicy TOTP enable, verify, recovery-code consume and persistence;
 - master password protected keyring unlock behavior;
 - recovered vault unlock.
 
@@ -280,7 +296,7 @@ The dependency set is intentionally small:
 
 | Previous limitation | Current correction or mitigation | Residual risk |
 | --- | --- | --- |
-| Malware already running as the same unlocked Windows user can interact with the app or user-scoped APIs. | Sensitive actions require Windows authorization, the app auto-locks after 15 minutes of inactivity, and an optional master password adds a local second factor. | Malware with the same user context is still outside the hard boundary of a local desktop app. |
+| Malware already running as the same unlocked Windows user can interact with the app or user-scoped APIs. | Sensitive actions require Windows authorization, the app auto-locks after 15 minutes of inactivity, optional master password protects the local keyring, and AuthPolicy can require TOTP before the workspace opens. | Malware with the same user context is still outside the hard boundary of a local desktop app. |
 | Recovery passphrase cannot be recovered if forgotten. | Recovery Kits can include a non-secret hint, and an already-unlocked source device can export a new kit. | LockerIt still cannot recover a forgotten passphrase without an unlocked source or another valid Recovery Kit. That is intentional to avoid escrow. |
 | No separate master password option. | Implemented optional DPAPI plus master password keyring mode. | Losing both master password and Recovery Kit blocks local unlock. |
 | No hardware-backed key option. | Windows Hello/PIN/biometric user presence is used for unlock and sensitive actions when available. | Direct TPM-held vault key storage is not implemented yet. |

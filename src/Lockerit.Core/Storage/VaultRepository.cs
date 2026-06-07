@@ -109,6 +109,32 @@ public sealed class VaultRepository
             .ToArray();
     }
 
+    public AuthPolicy? GetAuthPolicy()
+    {
+        using var connection = OpenConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Payload FROM VaultItems WHERE Id = $id AND Kind = $kind;";
+        command.Parameters.AddWithValue("$id", AuthPolicy.PolicyId.ToString("D"));
+        command.Parameters.AddWithValue("$kind", VaultItemKinds.AuthPolicy);
+
+        var payload = command.ExecuteScalar() as string;
+        if (payload is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return _cipher.DecryptJson<AuthPolicy>(payload, _key, VaultItemKinds.AuthPolicy);
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException or JsonException or InvalidOperationException)
+        {
+            throw new InvalidOperationException("The Lockerit authentication policy could not be decrypted.", ex);
+        }
+    }
+
     public PasswordSecret? GetPassword(Guid id)
     {
         using var connection = OpenConnection();
@@ -201,6 +227,28 @@ public sealed class VaultRepository
             """;
         command.Parameters.AddWithValue("$id", file.Id.ToString("D"));
         command.Parameters.AddWithValue("$kind", VaultItemKinds.FileAttachment);
+        command.Parameters.AddWithValue("$payload", payload);
+        command.ExecuteNonQuery();
+    }
+
+    public void UpsertAuthPolicy(AuthPolicy policy)
+    {
+        var payload = _cipher.EncryptJson(policy, _key, VaultItemKinds.AuthPolicy);
+
+        using var connection = OpenConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            INSERT INTO VaultItems (Id, Kind, Payload)
+            VALUES ($id, $kind, $payload)
+            ON CONFLICT(Id) DO UPDATE SET
+                Kind = excluded.Kind,
+                Payload = excluded.Payload;
+            """;
+        command.Parameters.AddWithValue("$id", AuthPolicy.PolicyId.ToString("D"));
+        command.Parameters.AddWithValue("$kind", VaultItemKinds.AuthPolicy);
         command.Parameters.AddWithValue("$payload", payload);
         command.ExecuteNonQuery();
     }

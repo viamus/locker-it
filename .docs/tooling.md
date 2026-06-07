@@ -9,12 +9,14 @@ flowchart TB
     LockerIt["LockerIt"]
     Passwords["Password vault"]
     Recovery["Recovery tools"]
+    AuthPolicy["AuthPolicy tools"]
     Desktop["Desktop shell"]
     Security["Security tools"]
     Developer["Developer tools"]
 
     LockerIt --> Passwords
     LockerIt --> Recovery
+    LockerIt --> AuthPolicy
     LockerIt --> Desktop
     LockerIt --> Security
     LockerIt --> Developer
@@ -30,13 +32,19 @@ flowchart TB
     Recovery --> Refresh["Refresh local keyring"]
     Recovery --> Hint["Recovery hint metadata"]
 
+    AuthPolicy --> Totp["Enable/replace TOTP with QR"]
+    AuthPolicy --> Codes["Regenerate recovery codes"]
+    AuthPolicy --> Gate["Unlock session gate"]
+
     Desktop --> Tray["Tray icon"]
     Desktop --> Settings["Settings workspace"]
+    Desktop --> Documentation["In-app documentation"]
     Desktop --> Account["Account log out menu"]
 
     Security --> Hello["Windows Hello/PIN/biometric"]
     Security --> Dpapi["DPAPI keyring"]
     Security --> Master["Optional master password"]
+    Security --> Policy["Encrypted AuthPolicy"]
     Security --> Aes["AES-GCM payload encryption"]
     Security --> AutoLock["Auto-lock"]
 

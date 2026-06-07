@@ -114,6 +114,11 @@ public sealed class LockeritVault : IDisposable
             ?? throw new InvalidOperationException("The Lockerit file attachment was not found.");
     }
 
+    public AuthPolicy GetAuthPolicy()
+    {
+        return _repository.GetAuthPolicy() ?? AuthPolicy.Default();
+    }
+
     public void SavePassword(PasswordSecret secret)
     {
         if (string.IsNullOrWhiteSpace(secret.Title))
@@ -152,6 +157,122 @@ public sealed class LockeritVault : IDisposable
     public void DeleteFileAttachment(Guid id)
     {
         _repository.DeleteFileAttachment(id);
+    }
+
+    public TotpEnrollment CreateTotpEnrollment(string? accountName = null)
+    {
+        var issuer = "LockerIt";
+        var account = string.IsNullOrWhiteSpace(accountName)
+            ? Account.DisplayName
+            : accountName.Trim();
+        var secret = TotpAuthenticator.CreateSecret();
+
+        return new TotpEnrollment(
+            issuer,
+            account,
+            secret,
+            TotpAuthenticator.CreateSetupUri(issuer, account, secret),
+            RecoveryCodeService.GenerateCodes(10));
+    }
+
+    public void EnableTotp(TotpEnrollment enrollment, string verificationCode)
+    {
+        if (!TotpAuthenticator.VerifyCode(
+                enrollment.SecretBase32,
+                verificationCode,
+                DateTimeOffset.UtcNow,
+                TotpAuthenticator.EnrollmentAllowedDriftSteps))
+        {
+            throw new InvalidOperationException("The authenticator code was not accepted.");
+        }
+
+        var policy = GetAuthPolicy()
+            .WithRequiredFactor(AuthPolicyFactor.Totp) with
+        {
+            TotpSecretBase32 = enrollment.SecretBase32,
+            TotpEnabledAtUtc = DateTimeOffset.UtcNow,
+            RecoveryCodes = enrollment.RecoveryCodes
+                .Select(RecoveryCodeService.HashCode)
+                .ToList(),
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
+
+        _repository.UpsertAuthPolicy(policy);
+    }
+
+    public void DisableTotp()
+    {
+        var policy = GetAuthPolicy()
+            .WithoutRequiredFactor(AuthPolicyFactor.Totp) with
+        {
+            TotpSecretBase32 = null,
+            TotpEnabledAtUtc = null,
+            RecoveryCodes = [],
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
+
+        _repository.UpsertAuthPolicy(policy);
+    }
+
+    public IReadOnlyList<string> RegenerateRecoveryCodes()
+    {
+        var policy = GetAuthPolicy();
+        if (!policy.IsTotpEnabled)
+        {
+            throw new InvalidOperationException("TOTP must be enabled before recovery codes can be regenerated.");
+        }
+
+        var recoveryCodes = RecoveryCodeService.GenerateCodes(10);
+        _repository.UpsertAuthPolicy(policy with
+        {
+            RecoveryCodes = recoveryCodes
+                .Select(RecoveryCodeService.HashCode)
+                .ToList(),
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        });
+
+        return recoveryCodes;
+    }
+
+    public AuthPolicyVerificationResult VerifyAuthPolicyCode(string code, DateTimeOffset? timestamp = null)
+    {
+        var policy = GetAuthPolicy();
+        if (!policy.RequiresAdditionalFactor)
+        {
+            return AuthPolicyVerificationResult.Success();
+        }
+
+        if (policy.IsTotpEnabled &&
+            !string.IsNullOrWhiteSpace(policy.TotpSecretBase32) &&
+            TotpAuthenticator.VerifyCode(
+                policy.TotpSecretBase32,
+                code,
+                timestamp ?? DateTimeOffset.UtcNow,
+                TotpAuthenticator.AuthPolicyAllowedDriftSteps))
+        {
+            return AuthPolicyVerificationResult.Success();
+        }
+
+        for (var index = 0; index < policy.RecoveryCodes.Count; index++)
+        {
+            var recoveryCode = policy.RecoveryCodes[index];
+            if (recoveryCode.UsedAtUtc is not null || !RecoveryCodeService.Verify(code, recoveryCode))
+            {
+                continue;
+            }
+
+            var updatedRecoveryCodes = policy.RecoveryCodes.ToList();
+            updatedRecoveryCodes[index] = recoveryCode with { UsedAtUtc = DateTimeOffset.UtcNow };
+            _repository.UpsertAuthPolicy(policy with
+            {
+                RecoveryCodes = updatedRecoveryCodes,
+                UpdatedAtUtc = DateTimeOffset.UtcNow
+            });
+
+            return AuthPolicyVerificationResult.Success(usedRecoveryCode: true);
+        }
+
+        return AuthPolicyVerificationResult.Fail("The authenticator or recovery code was not accepted. Use the newest code from the LockerIt entry and check that automatic time is enabled on this PC and phone.");
     }
 
     public RecoveryKitExportResult ExportRecoveryKit(string recoveryKitPath, string passphrase, string? passphraseHint = null)

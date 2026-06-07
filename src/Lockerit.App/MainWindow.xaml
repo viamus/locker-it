@@ -431,13 +431,6 @@
                     </StackPanel>
                 </StackPanel>
 
-                <Button DockPanel.Dock="Right"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center"
-                        Click="OpenReadmeMenuItem_Click">
-                    <TextBlock Text="Docs"
-                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                </Button>
             </DockPanel>
 
             <Grid Grid.Row="1" Margin="28">
@@ -735,6 +728,21 @@
                                           Stretch="Uniform"
                                           Data="M5,3 L14,3 L19,8 L19,21 L5,21 Z M14,3 L14,8 L19,8" />
                                     <TextBlock Text="Files"
+                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                </DockPanel>
+                            </Button>
+                            <Button x:Name="DocumentationNavButton"
+                                    Style="{StaticResource NavButton}"
+                                    Click="DocumentationNavButton_Click">
+                                <DockPanel>
+                                    <Path DockPanel.Dock="Left"
+                                          Width="15"
+                                          Height="15"
+                                          Margin="0,0,10,0"
+                                          Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Stretch="Uniform"
+                                          Data="M5,3 L17,3 C18.1,3 19,3.9 19,5 L19,21 L12,18 L5,21 Z M8,7 L16,7 M8,10 L16,10 M8,13 L13,13" />
+                                    <TextBlock Text="Documentation"
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                                 </DockPanel>
                             </Button>
@@ -1079,27 +1087,68 @@
                                                    Margin="0,4,0,0" />
                                     </StackPanel>
 
-                                    <Button Grid.Column="1"
-                                            Style="{StaticResource PrimaryButton}"
-                                            MinWidth="116"
-                                            ToolTip="Encrypt and import a local file into this vault"
-                                            Click="ImportFileButton_Click">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Path Width="14"
-                                                  Height="14"
-                                                  Margin="0,0,8,0"
-                                                  Stretch="Uniform"
-                                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  StrokeThickness="2"
-                                                  StrokeStartLineCap="Round"
-                                                  StrokeEndLineCap="Round"
-                                                  StrokeLineJoin="Round"
-                                                  Data="M12,20 L12,8 M8,12 L12,8 L16,12 M5,20 L19,20" />
-                                            <TextBlock Text="Import file"
-                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                       FontWeight="SemiBold" />
-                                        </StackPanel>
-                                    </Button>
+                                    <StackPanel Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <Border Width="352"
+                                                Background="{StaticResource InputBrush}"
+                                                BorderBrush="{StaticResource BorderBrushSoft}"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                Padding="12,0">
+                                            <DockPanel>
+                                                <Path DockPanel.Dock="Left"
+                                                      Width="15"
+                                                      Height="15"
+                                                      Margin="0,0,10,0"
+                                                      Fill="{StaticResource SubtleBrush}"
+                                                      Stretch="Uniform"
+                                                      Data="M10,4 C6.7,4 4,6.7 4,10 C4,13.3 6.7,16 10,16 C11.4,16 12.7,15.5 13.7,14.7 L19,20 L20,19 L14.7,13.7 C15.5,12.7 16,11.4 16,10 C16,6.7 13.3,4 10,4 Z M10,6 C12.2,6 14,7.8 14,10 C14,12.2 12.2,14 10,14 C7.8,14 6,12.2 6,10 C6,7.8 7.8,6 10,6 Z" />
+                                                <TextBox x:Name="FileSearchInput"
+                                                         BorderThickness="0"
+                                                         Background="Transparent"
+                                                         ToolTip="Search by file name, category, type, or size"
+                                                         TextChanged="FileSearchInput_TextChanged" />
+                                            </DockPanel>
+                                        </Border>
+
+                                        <ComboBox x:Name="FileCategoryFilterComboBox"
+                                                  Width="178"
+                                                  Margin="8,0,8,0"
+                                                  SelectedIndex="0"
+                                                  ToolTip="Filter encrypted files by category"
+                                                  SelectionChanged="FileCategoryFilterComboBox_SelectionChanged">
+                                            <ComboBoxItem Content="All categories" Tag="All" />
+                                            <ComboBoxItem Content="General" Tag="General" />
+                                            <ComboBoxItem Content="Work" Tag="Work" />
+                                            <ComboBoxItem Content="Personal" Tag="Personal" />
+                                            <ComboBoxItem Content="Finance" Tag="Finance" />
+                                            <ComboBoxItem Content="Social" Tag="Social" />
+                                            <ComboBoxItem Content="Developer" Tag="Developer" />
+                                            <ComboBoxItem Content="Other" Tag="Other" />
+                                        </ComboBox>
+
+                                        <Button Style="{StaticResource PrimaryButton}"
+                                                MinWidth="116"
+                                                ToolTip="Encrypt and import a local file into this vault"
+                                                Click="ImportFileButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Width="14"
+                                                      Height="14"
+                                                      Margin="0,0,8,0"
+                                                      Stretch="Uniform"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                      StrokeThickness="2"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Data="M12,20 L12,8 M8,12 L12,8 L16,12 M5,20 L19,20" />
+                                                <TextBlock Text="Import file"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                           FontWeight="SemiBold" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
                                 </Grid>
 
                                 <Grid>
@@ -1242,11 +1291,13 @@
                                                 HorizontalAlignment="Center"
                                                 VerticalAlignment="Center"
                                                 Width="280">
-                                        <TextBlock Text="No files yet"
+                                        <TextBlock x:Name="EmptyFilesTitleText"
+                                                   Text="No files yet"
                                                    FontSize="18"
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center" />
-                                        <TextBlock Text="Import a file to encrypt it inside the local vault."
+                                        <TextBlock x:Name="EmptyFilesDescriptionText"
+                                                   Text="Import a file to encrypt it inside the local vault."
                                                    Foreground="{StaticResource MutedBrush}"
                                                    TextAlignment="Center"
                                                    TextWrapping="Wrap"
@@ -1274,6 +1325,103 @@
                                     </StackPanel>
                                 </Grid>
                             </DockPanel>
+                        </Border>
+                    </Grid>
+
+                    <Grid x:Name="DocumentationContent" Visibility="Collapsed">
+                        <Border Background="{StaticResource SurfaceBrush}"
+                                BorderBrush="{StaticResource BorderBrushSoft}"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                            <Grid Margin="20">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Margin="0,0,0,16">
+                                    <TextBlock Text="Documentation"
+                                               FontSize="22"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock x:Name="DocumentationStatusText"
+                                               Foreground="{StaticResource MutedBrush}"
+                                               FontSize="12"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+
+                                <Grid Grid.Row="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="300" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Background="#121311"
+                                            BorderBrush="{StaticResource BorderBrushSoft}"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Padding="10">
+                                        <ListBox x:Name="DocumentationList"
+                                                 SelectionChanged="DocumentationList_SelectionChanged"
+                                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Padding="12,10" MinHeight="58">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Title}"
+                                                                       FontWeight="SemiBold"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding Description}"
+                                                                       Foreground="{StaticResource SubtleBrush}"
+                                                                       FontSize="11"
+                                                                       TextWrapping="Wrap"
+                                                                       Margin="0,3,0,0" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </Border>
+
+                                    <Border Grid.Column="2"
+                                            Background="#121311"
+                                            BorderBrush="{StaticResource BorderBrushSoft}"
+                                            BorderThickness="1"
+                                            CornerRadius="8">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="*" />
+                                            </Grid.RowDefinitions>
+
+                                            <DockPanel Margin="18,16,18,12">
+                                                <TextBlock x:Name="DocumentationTitleText"
+                                                           FontSize="18"
+                                                           FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock x:Name="DocumentationPathText"
+                                                           DockPanel.Dock="Bottom"
+                                                           Foreground="{StaticResource SubtleBrush}"
+                                                           FontSize="12"
+                                                           Margin="0,4,0,0"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </DockPanel>
+
+                                            <TextBox x:Name="DocumentationViewer"
+                                                     Grid.Row="1"
+                                                     Margin="18,0,18,18"
+                                                     IsReadOnly="True"
+                                                     AcceptsReturn="True"
+                                                     TextWrapping="Wrap"
+                                                     VerticalScrollBarVisibility="Auto"
+                                                     HorizontalScrollBarVisibility="Disabled"
+                                                     VerticalContentAlignment="Top"
+                                                     FontFamily="Consolas"
+                                                     FontSize="13" />
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                            </Grid>
                         </Border>
                     </Grid>
 
@@ -1333,13 +1481,6 @@
                                         </Button>
                                     </Grid>
 
-                                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                        <Button Click="OpenReadmeMenuItem_Click">
-                                            <TextBlock Text="Open README"
-                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                        </Button>
-                                    </StackPanel>
-
                                     <TextBlock Text="Master password"
                                                FontSize="18"
                                                FontWeight="SemiBold"
@@ -1388,6 +1529,77 @@
                                         </Button>
                                     </StackPanel>
                                     <TextBlock x:Name="MasterPasswordStatusText"
+                                               Foreground="{StaticResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,10,0,0" />
+
+                                    <TextBlock Text="AuthPolicy"
+                                               FontSize="18"
+                                               FontWeight="SemiBold"
+                                               Margin="0,32,0,0" />
+                                    <TextBlock Text="Two-factor authentication" Style="{StaticResource FieldLabel}" />
+                                    <TextBlock Foreground="{StaticResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Text="Requires an authenticator app code after Windows authorization before the vault workspace opens. Recovery codes can unlock the vault once if the authenticator is unavailable." />
+                                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                        <Button x:Name="EnableTotpButton"
+                                                ToolTip="Enable or replace authenticator app verification for this vault"
+                                                Click="EnableTotpButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Width="14"
+                                                      Height="14"
+                                                      Margin="0,0,8,0"
+                                                      Stretch="Uniform"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                      StrokeThickness="1.8"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Data="M12,3 L19,6 L19,11 C19,15.7 16.2,19.6 12,21 C7.8,19.6 5,15.7 5,11 L5,6 Z M9,12 L11,14 L15.5,9.5" />
+                                                <TextBlock Text="Enable / replace"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button x:Name="RegenerateRecoveryCodesButton"
+                                                Margin="8,0,0,0"
+                                                ToolTip="Create new one-time recovery codes and invalidate old unused codes"
+                                                Click="RegenerateRecoveryCodesButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Width="14"
+                                                      Height="14"
+                                                      Margin="0,0,8,0"
+                                                      Stretch="Uniform"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                      StrokeThickness="1.8"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Data="M5,12 C5,8.1 8.1,5 12,5 C14.2,5 16.2,6 17.5,7.5 M19,5 L19,9 L15,9 M19,12 C19,15.9 15.9,19 12,19 C9.8,19 7.8,18 6.5,16.5 M5,19 L5,15 L9,15" />
+                                                <TextBlock Text="New recovery codes"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button x:Name="DisableTotpButton"
+                                                Margin="8,0,0,0"
+                                                ToolTip="Disable authenticator app verification for this vault"
+                                                Click="DisableTotpButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Width="14"
+                                                      Height="14"
+                                                      Margin="0,0,8,0"
+                                                      Stretch="Uniform"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                      StrokeThickness="1.8"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Data="M6,7 L18,7 M9,7 L9,5 L15,5 L15,7 M8,9 L9,19 L17,19 L18,9" />
+                                                <TextBlock Text="Disable"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                    <TextBlock x:Name="TotpStatusText"
                                                Foreground="{StaticResource MutedBrush}"
                                                TextWrapping="Wrap"
                                                Margin="0,10,0,0" />
