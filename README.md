@@ -5,6 +5,10 @@
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4)
 ![License](https://img.shields.io/badge/license-MIT-65B891)
 
+<p align="center">
+  <img src=".docs/assets/lockerit-lockup.png" alt="LockerIt orange lockup" width="260" />
+</p>
+
 LockerIt is a Windows-first, standalone encrypted vault for passwords and secure file attachments. It is intentionally local-first: no WebAPI, no cloud dependency, no background sync service, and no remote account model. The vault belongs to the Windows account that unlocks it.
 
 The project targets Windows 11+ and is built with .NET 10, WPF, SQLite, Windows DPAPI, Windows Hello/PIN/biometric consent, TOTP AuthPolicy gates, and AES-256-GCM encrypted payloads.
@@ -32,16 +36,16 @@ The first product target is a beautiful dark desktop vault that feels modern, di
 
 | Area | Capability | Status |
 | --- | --- | --- |
-| Desktop shell | Dark WPF app with sidebar navigation, account menu, tray icon and modal editor | Implemented |
+| Desktop shell | Dark WPF app that opens maximized with sidebar navigation, account menu, tray icon and modal editor | Implemented |
 | Authentication | Windows Hello/PIN/biometric prompt with current Windows password fallback | Implemented |
 | Password vault | Create, read, update, delete, search and categorize password entries | Implemented |
 | Encryption | AES-256-GCM encrypted JSON payloads before SQLite persistence | Implemented |
 | Local keyring | 256-bit vault master key protected with Windows DPAPI CurrentUser | Implemented |
 | Recovery | Export/import Recovery Kit, optional passphrase hint and re-protect local keyring | Implemented |
 | Legacy master password | Existing master-password keyrings can still unlock and are migrated back to Windows + AuthPolicy protection | Compatibility |
-| AuthPolicy 2FA | Encrypted vault policy with TOTP QR setup, manual setup key and one-time recovery codes | Implemented |
+| AuthPolicy 2FA | Encrypted vault policy with TOTP QR setup, inline six-digit login check and one-time recovery codes | Implemented |
 | Secure files | Encrypted file attachments with import/export/delete, search and category filter | Implemented |
-| Documentation | In-app documentation workspace for README, `.docs/`, contribution guide and license | Implemented |
+| Documentation | Repository README, `.docs/`, contribution guide and license | Implemented |
 | Session hardening | 15-minute inactivity auto-lock and Windows verification for sensitive actions | Implemented |
 | Storage settings | Configurable vault database path | Implemented |
 | Smoke tests | End-to-end core test for CRUD, encryption, recovery and keyring loss | Implemented |

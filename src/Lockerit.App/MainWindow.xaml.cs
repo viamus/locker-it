@@ -44,6 +44,7 @@ public partial class MainWindow : Window
     private bool _isComponentReady;
     private bool _isPasswordRevealed;
     private bool _isFillingTotpDigits;
+    private bool _inlineTotpVerificationQueued;
     private bool _inlineRecoveryCodeMode;
     private int _inlineTotpAttempts;
     private string _pendingUnlockStatus = "Vault unlocked.";
@@ -1502,6 +1503,7 @@ public partial class MainWindow : Window
         LoginUnlockPanel.Visibility = Visibility.Visible;
         LoginTotpPanel.Visibility = Visibility.Collapsed;
         LoginTotpValidationText.Text = string.Empty;
+        _inlineTotpVerificationQueued = false;
         _inlineRecoveryCodeMode = false;
         _inlineTotpAttempts = 0;
         ResetInlineTotpInputs();
@@ -1571,6 +1573,8 @@ public partial class MainWindow : Window
             inputs[index + 1].Focus();
             inputs[index + 1].SelectAll();
         }
+
+        QueueInlineTotpVerificationIfComplete();
     }
 
     private void TotpDigit_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -1642,6 +1646,7 @@ public partial class MainWindow : Window
 
         FillTotpDigits(digits);
         LoginTotpValidationText.Text = string.Empty;
+        QueueInlineTotpVerificationIfComplete();
         e.CancelCommand();
     }
 
@@ -1658,6 +1663,7 @@ public partial class MainWindow : Window
 
     private void VerifyInlineTotpCode()
     {
+        _inlineTotpVerificationQueued = false;
         if (_vault is null)
         {
             CancelPendingInlineUnlock("Unlock expired. Verify your Windows account again.");
@@ -1711,6 +1717,33 @@ public partial class MainWindow : Window
             ShowError("Two-factor verification failed.", ex);
             CancelPendingInlineUnlock("Two-factor verification failed. Unlock again.");
         }
+    }
+
+    private void QueueInlineTotpVerificationIfComplete()
+    {
+        if (_inlineRecoveryCodeMode ||
+            _inlineTotpVerificationQueued ||
+            LoginTotpPanel.Visibility != Visibility.Visible ||
+            GetInlineAuthPolicyCode().Length != 6)
+        {
+            return;
+        }
+
+        _inlineTotpVerificationQueued = true;
+        Dispatcher.BeginInvoke(
+            () =>
+            {
+                if (!_inlineRecoveryCodeMode &&
+                    LoginTotpPanel.Visibility == Visibility.Visible &&
+                    GetInlineAuthPolicyCode().Length == 6)
+                {
+                    VerifyInlineTotpCode();
+                    return;
+                }
+
+                _inlineTotpVerificationQueued = false;
+            },
+            DispatcherPriority.Input);
     }
 
     private void CancelPendingInlineUnlock(string status)
@@ -1902,7 +1935,7 @@ public partial class MainWindow : Window
     {
         ShowInTaskbar = true;
         Show();
-        WindowState = WindowState.Normal;
+        WindowState = WindowState.Maximized;
         Activate();
         SetStatus("Restored from tray.");
     }

@@ -9,6 +9,7 @@
         Width="1180"
         MinHeight="680"
         MinWidth="980"
+        WindowState="Maximized"
         Background="#0E0F0D">
     <Window.Resources>
         <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0E0F0D" />
