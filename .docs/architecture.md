@@ -80,7 +80,7 @@ flowchart TB
 | Boundary | Owner | Responsibilities |
 | --- | --- | --- |
 | `Lockerit.App` | UI shell | Windows, input, dialogs, tray icon, settings screen, status messages. |
-| `Lockerit.Core` | Vault engine | Key handling, encryption, SQLite repository, recovery import/export, AuthPolicy/TOTP, encrypted file attachment payloads. |
+| `Lockerit.Core` | Vault engine | Key handling, encryption, SQLite repository, recovery import/export, AuthPolicy/TOTP, local QR matrix generation, encrypted file attachment payloads. |
 | SQLite database | Local storage | Durable encrypted item payloads and item metadata. |
 | DPAPI keyring | Windows user profile | Day-to-day protection of the vault master key for the current Windows account. Can be upgraded to DPAPI plus master password mode. |
 | Recovery Kit | User-managed portable file | Cross-device encrypted copy of the vault master key. |
@@ -139,7 +139,7 @@ The current app uses:
 - modal editor for create/edit;
 - Settings recovery actions;
 - Settings master password actions;
-- Settings AuthPolicy actions for TOTP enable, disable, replace and recovery-code regeneration;
+- Settings AuthPolicy actions for TOTP QR setup, enable, disable, replace and recovery-code regeneration;
 - tray icon for hide/show/lock behavior.
 
 ## Extension Points

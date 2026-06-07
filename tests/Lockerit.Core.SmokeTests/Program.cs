@@ -77,6 +77,9 @@ try
         var enrollment = vault.CreateTotpEnrollment("smoke@example.com");
         Require(enrollment.RecoveryCodes.Count == 10, "TOTP enrollment should create recovery codes.");
         Require(enrollment.SetupUri.StartsWith("otpauth://totp/", StringComparison.Ordinal), "TOTP setup URI mismatch.");
+        var qrCode = TotpQrCodeGenerator.CreateMatrix(enrollment.SetupUri);
+        Require(qrCode.Size >= 21 && qrCode.Size % 4 == 1, "TOTP QR code size mismatch.");
+        Require(qrCode.IsDark(0, 0), "TOTP QR code should include a finder pattern.");
         RequireThrows<InvalidOperationException>(
             () => vault.EnableTotp(enrollment, "not-a-code"),
             "Invalid TOTP setup code should not enable AuthPolicy.");

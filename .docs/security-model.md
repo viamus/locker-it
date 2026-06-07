@@ -61,6 +61,7 @@ flowchart TB
 | Local keyring protection | Windows DPAPI with `DataProtectionScope.CurrentUser`. |
 | Optional master password keyring | DPAPI-protected v2 keyring whose inner vault key is wrapped with PBKDF2-HMAC-SHA256 plus AES-256-GCM. |
 | AuthPolicy TOTP | RFC 6238-style 6-digit TOTP using a 160-bit random Base32 secret and HMAC-SHA1. |
+| AuthPolicy setup QR | Local QR matrix generation for the `otpauth://` setup URI; no network service or QR package is required. |
 | AuthPolicy recovery codes | Random one-time codes stored only as salted SHA-256 hashes inside the encrypted AuthPolicy payload. |
 | Recovery wrapping key | PBKDF2-HMAC-SHA256, 256-bit random salt, 600,000 iterations. |
 | Recovery Kit encryption | AES-256-GCM over the vault master key. |

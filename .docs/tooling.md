@@ -32,7 +32,7 @@ flowchart TB
     Recovery --> Refresh["Refresh local keyring"]
     Recovery --> Hint["Recovery hint metadata"]
 
-    AuthPolicy --> Totp["Enable/replace TOTP"]
+    AuthPolicy --> Totp["Enable/replace TOTP with QR"]
     AuthPolicy --> Codes["Regenerate recovery codes"]
     AuthPolicy --> Gate["Unlock session gate"]
 

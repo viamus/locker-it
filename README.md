@@ -34,7 +34,7 @@ The first product target is a beautiful dark desktop vault that feels modern, di
 | Local keyring | 256-bit vault master key protected with Windows DPAPI CurrentUser | Implemented |
 | Recovery | Export/import Recovery Kit, optional passphrase hint and re-protect local keyring | Implemented |
 | Master password | Optional local second factor after Windows authorization | Implemented |
-| AuthPolicy 2FA | Encrypted vault policy with TOTP authenticator setup and one-time recovery codes | Implemented |
+| AuthPolicy 2FA | Encrypted vault policy with TOTP QR setup, manual setup key and one-time recovery codes | Implemented |
 | Secure files | Encrypted file attachments with import/export/delete | Implemented |
 | Session hardening | 15-minute inactivity auto-lock and Windows verification for sensitive actions | Implemented |
 | Storage settings | Configurable vault database path | Implemented |
@@ -182,7 +182,7 @@ Password entries and file attachment payloads are serialized as JSON, encrypted 
 
 LockerIt can also add a master password to the local keyring. In that mode, Windows authorization is still required, but the DPAPI-unsealed keyring contains an AES-GCM wrapped vault key that also requires the LockerIt master password. This is a local second factor, not a cloud account or remote escrow system.
 
-LockerIt AuthPolicy adds another local gate after the vault key is opened: an encrypted policy item inside the vault can require a TOTP authenticator code before the workspace is shown. The same policy stores hashed one-time recovery codes. Because AuthPolicy lives in the encrypted database, it moves with the vault across devices and remains protected by the vault master key.
+LockerIt AuthPolicy adds another local gate after the vault key is opened: an encrypted policy item inside the vault can require a TOTP authenticator code before the workspace is shown. The setup dialog renders a local QR code and also provides the manual setup key/URI as fallback. The same policy stores hashed one-time recovery codes. Because AuthPolicy lives in the encrypted database, it moves with the vault across devices and remains protected by the vault master key.
 
 ## Recovery Model
 

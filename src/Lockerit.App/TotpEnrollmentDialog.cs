@@ -7,6 +7,7 @@ using WpfButton = System.Windows.Controls.Button;
 using WpfColor = System.Windows.Media.Color;
 using WpfColorConverter = System.Windows.Media.ColorConverter;
 using WpfFontFamily = System.Windows.Media.FontFamily;
+using WpfImage = System.Windows.Controls.Image;
 using WpfTextBox = System.Windows.Controls.TextBox;
 
 namespace Lockerit.App;
@@ -22,7 +23,7 @@ internal sealed class TotpEnrollmentDialog : Window
         _enrollment = enrollment;
 
         Title = "Two-Factor Authentication";
-        Width = 560;
+        Width = 720;
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -34,15 +35,27 @@ internal sealed class TotpEnrollmentDialog : Window
         root.Child = stack;
 
         stack.Children.Add(CreateHeading("Set up authenticator"));
-        stack.Children.Add(CreateBody("Add this LockerIt vault to an authenticator app, then enter the six-digit code shown by the app. Keep the recovery codes after setup; they are shown once."));
+        stack.Children.Add(CreateBody("Scan the QR code with an authenticator app, then enter the six-digit code shown by the app. Keep the recovery codes after setup; they are shown once."));
 
-        stack.Children.Add(CreateLabel("Manual setup key"));
-        var secretRow = CreateCopyRow(enrollment.SecretBase32, "Copy key");
-        stack.Children.Add(secretRow);
+        var setupGrid = new Grid
+        {
+            Margin = new Thickness(0, 0, 0, 2)
+        };
+        setupGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        setupGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+        setupGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        setupGrid.Children.Add(CreateQrCodeCard(enrollment.SetupUri));
 
-        stack.Children.Add(CreateLabel("Setup URI"));
-        var uriRow = CreateCopyRow(enrollment.SetupUri, "Copy URI");
-        stack.Children.Add(uriRow);
+        var manualStack = new StackPanel();
+        Grid.SetColumn(manualStack, 2);
+
+        manualStack.Children.Add(CreateLabel("Manual setup key", topMargin: 0));
+        manualStack.Children.Add(CreateCopyRow(enrollment.SecretBase32, "Copy key"));
+        manualStack.Children.Add(CreateLabel("Setup URI"));
+        manualStack.Children.Add(CreateCopyRow(enrollment.SetupUri, "Copy URI"));
+        setupGrid.Children.Add(manualStack);
+
+        stack.Children.Add(setupGrid);
 
         stack.Children.Add(CreateLabel("Authenticator code"));
         ConfigureTextBox(_codeInput);
@@ -113,6 +126,85 @@ internal sealed class TotpEnrollmentDialog : Window
         return grid;
     }
 
+    private Border CreateQrCodeCard(string setupUri)
+    {
+        return new Border
+        {
+            Width = 236,
+            Background = BrushFrom("#121311"),
+            BorderBrush = BrushFrom("#34352F"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(14),
+            Child = new StackPanel
+            {
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = "Scan QR code",
+                        Foreground = BrushFrom("#F2EFE7"),
+                        FontWeight = FontWeights.SemiBold,
+                        Margin = new Thickness(0, 0, 0, 10)
+                    },
+                    CreateQrCodeImage(setupUri),
+                    new TextBlock
+                    {
+                        Text = "Use the manual key if your authenticator cannot scan it.",
+                        Foreground = BrushFrom("#A9A39A"),
+                        FontSize = 12,
+                        TextWrapping = TextWrapping.Wrap,
+                        Margin = new Thickness(0, 10, 0, 0)
+                    }
+                }
+            }
+        };
+    }
+
+    private static WpfImage CreateQrCodeImage(string setupUri)
+    {
+        var matrix = TotpQrCodeGenerator.CreateMatrix(setupUri);
+        const int quietZone = 4;
+        const int moduleSize = 4;
+        var pixelSize = (matrix.Size + quietZone * 2) * moduleSize;
+        var drawing = new DrawingGroup();
+
+        using (var context = drawing.Open())
+        {
+            context.DrawRectangle(System.Windows.Media.Brushes.White, null, new Rect(0, 0, pixelSize, pixelSize));
+
+            for (var y = 0; y < matrix.Size; y++)
+            {
+                for (var x = 0; x < matrix.Size; x++)
+                {
+                    if (!matrix.IsDark(x, y))
+                    {
+                        continue;
+                    }
+
+                    context.DrawRectangle(
+                        System.Windows.Media.Brushes.Black,
+                        null,
+                        new Rect(
+                            (x + quietZone) * moduleSize,
+                            (y + quietZone) * moduleSize,
+                            moduleSize,
+                            moduleSize));
+                }
+            }
+        }
+
+        drawing.Freeze();
+        return new WpfImage
+        {
+            Source = new DrawingImage(drawing),
+            Width = 204,
+            Height = 204,
+            Stretch = Stretch.Fill,
+            SnapsToDevicePixels = true
+        };
+    }
+
     private static Border CreateRoot()
     {
         return new Border
@@ -147,7 +239,7 @@ internal sealed class TotpEnrollmentDialog : Window
         };
     }
 
-    private static TextBlock CreateLabel(string text)
+    private static TextBlock CreateLabel(string text, double topMargin = 12)
     {
         return new TextBlock
         {
@@ -155,7 +247,7 @@ internal sealed class TotpEnrollmentDialog : Window
             Foreground = BrushFrom("#A9A39A"),
             FontSize = 12,
             FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 12, 0, 6)
+            Margin = new Thickness(0, topMargin, 0, 6)
         };
     }
 
