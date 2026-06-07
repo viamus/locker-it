@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="120" viewBox="0 0 720 120" role="img" aria-label="Lockerit 2D icon sheet">
+  <defs>
+    <style>
+      .tile{fill:#171816;stroke:#34352f;stroke-width:2}
+      .cyan{fill:#d97757}
+      .orange{fill:#e1a34a}
+      .rose{fill:#e06a5f}
+      .ink{fill:#f2efe7}
+      .line{fill:none;stroke:#f2efe7;stroke-width:8;stroke-linecap:round;stroke-linejoin:round}
+    </style>
+  </defs>
+  <rect class="tile" x="8" y="8" width="88" height="88" rx="12"/>
+  <path class="cyan" d="M38 45V34c0-14 10-25 24-25s24 11 24 25v11h4c6 0 10 4 10 10v31c0 6-4 10-10 10H34c-6 0-10-4-10-10V55c0-6 4-10 10-10h4Zm14 0h20V34c0-7-4-12-10-12s-10 5-10 12v11Z" transform="translate(-10 7) scale(.95)"/>
+  <rect class="tile" x="112" y="8" width="88" height="88" rx="12"/>
+  <path class="line" d="M156 34v36m-18-18h36"/>
+  <rect class="tile" x="216" y="8" width="88" height="88" rx="12"/>
+  <path class="line" d="M248 38h40v40h-40zM232 22h40"/>
+  <rect class="tile" x="320" y="8" width="88" height="88" rx="12"/>
+  <path class="line" d="M340 52c12-18 36-18 48 0-12 18-36 18-48 0Z"/>
+  <circle class="ink" cx="364" cy="52" r="8"/>
+  <rect class="tile" x="424" y="8" width="88" height="88" rx="12"/>
+  <path class="orange" d="m468 22 8 24h25l-20 15 8 25-21-15-21 15 8-25-20-15h25z"/>
+  <rect class="tile" x="528" y="8" width="88" height="88" rx="12"/>
+  <path class="rose" d="M558 25h28l4 8h20v10h-8l-6 43h-48l-6-43h-8V33h20l4-8Zm-2 18 4 33h24l4-33h-32Z"/>
+  <rect class="tile" x="632" y="8" width="88" height="88" rx="12"/>
+  <path class="line" d="M650 38h22l8 8h30v40h-60z"/>
+</svg>

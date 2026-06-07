@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Lockerit.App/Lockerit.App.csproj" />
+    <Project Path="src/Lockerit.Core/Lockerit.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Lockerit.Core.SmokeTests/Lockerit.Core.SmokeTests.csproj" />
+  </Folder>
+</Solution>

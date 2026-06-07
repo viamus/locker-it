@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Lockerit mark">
+  <rect width="256" height="256" rx="56" fill="#0e0f0d"/>
+  <circle cx="128" cy="128" r="92" fill="#171816" stroke="#d97757" stroke-width="8"/>
+  <path fill="#d97757" d="M85 111V91c0-25 18-44 43-44s43 19 43 44v20h8c10 0 18 8 18 18v56c0 10-8 18-18 18H77c-10 0-18-8-18-18v-56c0-10 8-18 18-18h8Zm24 0h38V91c0-12-7-21-19-21s-19 9-19 21v20Z"/>
+  <path fill="#0e0f0d" d="M128 141c11 0 20 9 20 20 0 7-4 13-10 17v23h-20v-23c-6-4-10-10-10-17 0-11 9-20 20-20Z"/>
+  <path stroke="#7aa7d9" stroke-width="14" stroke-linecap="round" d="M183 73h34m-17-17v34"/>
+</svg>
