@@ -23,10 +23,12 @@ flowchart TB
     Passwords --> Search["Search and category filter"]
     Passwords --> Copy["Copy username/password"]
     Passwords --> Generate["Generate password"]
+    Passwords --> Files["Encrypted file attachments"]
 
     Recovery --> Export["Export Recovery Kit"]
     Recovery --> Import["Import Recovery Kit"]
     Recovery --> Refresh["Refresh local keyring"]
+    Recovery --> Hint["Recovery hint metadata"]
 
     Desktop --> Tray["Tray icon"]
     Desktop --> Settings["Settings workspace"]
@@ -34,9 +36,12 @@ flowchart TB
 
     Security --> Hello["Windows Hello/PIN/biometric"]
     Security --> Dpapi["DPAPI keyring"]
+    Security --> Master["Optional master password"]
     Security --> Aes["AES-GCM payload encryption"]
+    Security --> AutoLock["Auto-lock"]
 
     Developer --> Build["dotnet build"]
+    Developer --> Actions["GitHub Actions build"]
     Developer --> Smoke["Core smoke test"]
     Developer --> Gh["GitHub CLI"]
 ```
@@ -49,6 +54,20 @@ flowchart TB
 | Git | Source control. |
 | GitHub CLI | Repository metadata, branch publishing, and pull requests. |
 | Windows 11 | Primary runtime target for Windows Hello/PIN/biometric integration. |
+
+## GitHub Actions
+
+The CI workflow lives at `.github/workflows/build.yml`.
+
+It runs on `windows-latest` for pushes to `main`, pushes to `codex/**`, and pull requests targeting `main`.
+
+```mermaid
+flowchart LR
+    Checkout["actions/checkout"] --> Setup["actions/setup-dotnet using global.json"]
+    Setup --> Restore["dotnet restore --locked-mode"]
+    Restore --> Build["dotnet build Release"]
+    Build --> Smoke["Core smoke test"]
+```
 
 ## Build Commands
 
@@ -108,6 +127,9 @@ gh pr create --base main --head codex/<short-topic> --title "<title>" --body "<b
 | Explicit package source mapping | `NuGet.Config` |
 | Small dependency surface | `src/Lockerit.Core/Lockerit.Core.csproj` |
 | Runtime secret ignore rules | `.gitignore` |
+| CI workflow | `.github/workflows/build.yml` |
+| Project license | `LICENSE` |
+| Contribution guide | `CONTRIBUTING.md` |
 
 ## Before Opening A PR
 

@@ -723,6 +723,21 @@
                                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                                 </DockPanel>
                             </Button>
+                            <Button x:Name="FilesNavButton"
+                                    Style="{StaticResource NavButton}"
+                                    Click="FilesNavButton_Click">
+                                <DockPanel>
+                                    <Path DockPanel.Dock="Left"
+                                          Width="15"
+                                          Height="15"
+                                          Margin="0,0,10,0"
+                                          Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Stretch="Uniform"
+                                          Data="M5,3 L14,3 L19,8 L19,21 L5,21 Z M14,3 L14,8 L19,8" />
+                                    <TextBlock Text="Files"
+                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                </DockPanel>
+                            </Button>
                             <Button x:Name="SettingsNavButton"
                                     Style="{StaticResource NavButton}"
                                     Click="SettingsNavButton_Click">
@@ -785,7 +800,7 @@
                                                 <TextBox x:Name="SearchInput"
                                                          BorderThickness="0"
                                                          Background="Transparent"
-                                                         ToolTip="Search by title, category, username, URL, or notes"
+                                                         ToolTip="Search by title, category, username, or URL"
                                                          TextChanged="SearchInput_TextChanged" />
                                             </DockPanel>
                                         </Border>
@@ -1042,6 +1057,226 @@
                         </Border>
                     </Grid>
 
+                    <Grid x:Name="FilesContent" Visibility="Collapsed">
+                        <Border Background="{StaticResource SurfaceBrush}"
+                                BorderBrush="{StaticResource BorderBrushSoft}"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                            <DockPanel Margin="20">
+                                <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Files"
+                                                   FontSize="22"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock x:Name="FileCountText"
+                                                   Foreground="{StaticResource MutedBrush}"
+                                                   FontSize="12"
+                                                   Margin="0,4,0,0" />
+                                    </StackPanel>
+
+                                    <Button Grid.Column="1"
+                                            Style="{StaticResource PrimaryButton}"
+                                            MinWidth="116"
+                                            ToolTip="Encrypt and import a local file into this vault"
+                                            Click="ImportFileButton_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Width="14"
+                                                  Height="14"
+                                                  Margin="0,0,8,0"
+                                                  Stretch="Uniform"
+                                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                  StrokeThickness="2"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round"
+                                                  Data="M12,20 L12,8 M8,12 L12,8 L16,12 M5,20 L19,20" />
+                                            <TextBlock Text="Import file"
+                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                       FontWeight="SemiBold" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+
+                                    <Border Grid.Row="0"
+                                            Background="#121311"
+                                            BorderBrush="{StaticResource BorderBrushSoft}"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Padding="14,10"
+                                            Margin="0,0,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="2.4*" />
+                                                <ColumnDefinition Width="120" />
+                                                <ColumnDefinition Width="110" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="96" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="File" Style="{StaticResource CaptionText}" />
+                                            <TextBlock Grid.Column="1" Text="Category" Style="{StaticResource CaptionText}" />
+                                            <TextBlock Grid.Column="2" Text="Size" Style="{StaticResource CaptionText}" />
+                                            <TextBlock Grid.Column="3" Text="Updated" Style="{StaticResource CaptionText}" />
+                                            <TextBlock Grid.Column="4" Text="Actions" Style="{StaticResource CaptionText}" HorizontalAlignment="Right" />
+                                        </Grid>
+                                    </Border>
+
+                                    <ListBox x:Name="FileList"
+                                             Grid.Row="1"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Padding="14,10" MinHeight="54">
+                                                    <Grid VerticalAlignment="Center">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="2.4*" />
+                                                            <ColumnDefinition Width="120" />
+                                                            <ColumnDefinition Width="110" />
+                                                            <ColumnDefinition Width="140" />
+                                                            <ColumnDefinition Width="96" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="34" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <Border Width="24"
+                                                                    Height="24"
+                                                                    Background="#251C17"
+                                                                    BorderBrush="#744532"
+                                                                    BorderThickness="1"
+                                                                    CornerRadius="6"
+                                                                    VerticalAlignment="Center">
+                                                                <Path Fill="{StaticResource PrimaryBrush}"
+                                                                      Stretch="Uniform"
+                                                                      Margin="6"
+                                                                      Data="M5,3 L14,3 L19,8 L19,21 L5,21 Z M14,3 L14,8 L19,8" />
+                                                            </Border>
+                                                            <StackPanel Grid.Column="1">
+                                                                <TextBlock Text="{Binding FileName}"
+                                                                           FontWeight="SemiBold"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="Encrypted attachment"
+                                                                           Foreground="{StaticResource SubtleBrush}"
+                                                                           FontSize="11"
+                                                                           Margin="0,2,0,0" />
+                                                            </StackPanel>
+                                                        </Grid>
+
+                                                        <Border Grid.Column="1"
+                                                                HorizontalAlignment="Left"
+                                                                VerticalAlignment="Center"
+                                                                Background="#251C17"
+                                                                BorderBrush="#744532"
+                                                                BorderThickness="1"
+                                                                CornerRadius="8"
+                                                                Padding="9,4">
+                                                            <TextBlock Text="{Binding Category}"
+                                                                       Foreground="{StaticResource PrimaryBrush}"
+                                                                       FontSize="12"
+                                                                       FontWeight="SemiBold"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                        </Border>
+
+                                                        <TextBlock Grid.Column="2"
+                                                                   Text="{Binding Size}"
+                                                                   Foreground="{StaticResource MutedBrush}"
+                                                                   VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="3"
+                                                                   Text="{Binding UpdatedAt, StringFormat={}{0:yyyy-MM-dd HH:mm}}"
+                                                                   Foreground="{StaticResource SubtleBrush}"
+                                                                   VerticalAlignment="Center" />
+
+                                                        <StackPanel Grid.Column="4"
+                                                                    Orientation="Horizontal"
+                                                                    HorizontalAlignment="Right">
+                                                            <Button Style="{StaticResource IconButton}"
+                                                                    Margin="0,0,6,0"
+                                                                    Tag="{Binding}"
+                                                                    ToolTip="Export this file from the vault"
+                                                                    Click="ExportFileRowButton_Click">
+                                                                <Path Width="15"
+                                                                      Height="15"
+                                                                      Stretch="Uniform"
+                                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                                      StrokeThickness="1.8"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      StrokeLineJoin="Round"
+                                                                      Data="M12,4 L12,16 M8,12 L12,16 L16,12 M5,20 L19,20" />
+                                                            </Button>
+                                                            <Button Style="{StaticResource DangerIconButton}"
+                                                                    Tag="{Binding}"
+                                                                    ToolTip="Delete this encrypted file attachment"
+                                                                    Click="DeleteFileRowButton_Click">
+                                                                <Path Width="15"
+                                                                      Height="15"
+                                                                      Stretch="Uniform"
+                                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                                      StrokeThickness="1.8"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      StrokeLineJoin="Round"
+                                                                      Data="M6,7 L18,7 M9,7 L9,5 L15,5 L15,7 M8,9 L9,19 L17,19 L18,9" />
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+
+                                    <StackPanel x:Name="EmptyFilesPanel"
+                                                Grid.Row="1"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Width="280">
+                                        <TextBlock Text="No files yet"
+                                                   FontSize="18"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center" />
+                                        <TextBlock Text="Import a file to encrypt it inside the local vault."
+                                                   Foreground="{StaticResource MutedBrush}"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,8,0,16" />
+                                        <Button Style="{StaticResource PrimaryButton}"
+                                                MinWidth="142"
+                                                HorizontalAlignment="Center"
+                                                Click="ImportFileButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Width="14"
+                                                      Height="14"
+                                                      Margin="0,0,8,0"
+                                                      Stretch="Uniform"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                      StrokeThickness="2"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Data="M12,20 L12,8 M8,12 L12,8 L16,12 M5,20 L19,20" />
+                                                <TextBlock Text="Import file"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                           FontWeight="SemiBold" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+
                     <Grid x:Name="SettingsContent" Visibility="Collapsed">
                         <Border Background="{StaticResource SurfaceBrush}"
                                 BorderBrush="{StaticResource BorderBrushSoft}"
@@ -1104,6 +1339,58 @@
                                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                                         </Button>
                                     </StackPanel>
+
+                                    <TextBlock Text="Master password"
+                                               FontSize="18"
+                                               FontWeight="SemiBold"
+                                               Margin="0,32,0,0" />
+                                    <TextBlock Text="Local second factor" Style="{StaticResource FieldLabel}" />
+                                    <TextBlock Foreground="{StaticResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Text="Adds a master password after Windows authorization. The local keyring remains tied to this Windows account, but the vault key is also wrapped by the master password." />
+                                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                        <Button x:Name="SetMasterPasswordButton"
+                                                ToolTip="Set or change the LockerIt master password for this vault"
+                                                Click="SetMasterPasswordButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Width="14"
+                                                      Height="14"
+                                                      Margin="0,0,8,0"
+                                                      Stretch="Uniform"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                      StrokeThickness="1.8"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Data="M12,2 C8.7,2 6,4.7 6,8 L6,10 L5,10 C3.9,10 3,10.9 3,12 L3,21 C3,22.1 3.9,23 5,23 L19,23 C20.1,23 21,22.1 21,21 L21,12 C21,10.9 20.1,10 19,10 L18,10 L18,8 C18,4.7 15.3,2 12,2 Z M8,10 L8,8 C8,5.8 9.8,4 12,4 C14.2,4 16,5.8 16,8 L16,10 Z" />
+                                                <TextBlock Text="Set / change"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button x:Name="RemoveMasterPasswordButton"
+                                                Margin="8,0,0,0"
+                                                ToolTip="Remove the LockerIt master password from this local keyring"
+                                                Click="RemoveMasterPasswordButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Width="14"
+                                                      Height="14"
+                                                      Margin="0,0,8,0"
+                                                      Stretch="Uniform"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                      StrokeThickness="1.8"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Data="M6,7 L18,7 M9,7 L9,5 L15,5 L15,7 M8,9 L9,19 L17,19 L18,9" />
+                                                <TextBlock Text="Remove"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                    <TextBlock x:Name="MasterPasswordStatusText"
+                                               Foreground="{StaticResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,10,0,0" />
 
                                     <TextBlock Text="Recovery"
                                                FontSize="18"

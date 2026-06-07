@@ -1,6 +1,6 @@
 # LockerIt
 
-LockerIt is a Windows-first, standalone encrypted vault for passwords today and secure files tomorrow. It is intentionally local-first: no WebAPI, no cloud dependency, no background sync service, and no remote account model. The vault belongs to the Windows account that unlocks it.
+LockerIt is a Windows-first, standalone encrypted vault for passwords and secure file attachments. It is intentionally local-first: no WebAPI, no cloud dependency, no background sync service, and no remote account model. The vault belongs to the Windows account that unlocks it.
 
 The project is built with .NET 10, WPF, SQLite, Windows DPAPI, Windows Hello/PIN/biometric consent, and AES-256-GCM encrypted payloads.
 
@@ -31,10 +31,13 @@ The first product target is a beautiful dark desktop vault that feels modern, di
 | Password vault | Create, read, update, delete, search and categorize password entries | Implemented |
 | Encryption | AES-256-GCM encrypted JSON payloads before SQLite persistence | Implemented |
 | Local keyring | 256-bit vault master key protected with Windows DPAPI CurrentUser | Implemented |
-| Recovery | Export/import Recovery Kit and re-protect local keyring | Implemented |
+| Recovery | Export/import Recovery Kit, optional passphrase hint and re-protect local keyring | Implemented |
+| Master password | Optional local second factor after Windows authorization | Implemented |
+| Secure files | Encrypted file attachments with import/export/delete | Implemented |
+| Session hardening | 15-minute inactivity auto-lock and Windows verification for sensitive actions | Implemented |
 | Storage settings | Configurable vault database path | Implemented |
 | Smoke tests | End-to-end core test for CRUD, encryption, recovery and keyring loss | Implemented |
-| Secure files | Encrypted file payloads | Planned |
+| CI | GitHub Actions build and smoke test workflow | Implemented |
 
 ## System Overview
 
@@ -48,7 +51,9 @@ flowchart LR
     Core --> Cipher["AES-256-GCM payload cipher"]
     Core --> Store["SQLite vault database"]
     Core --> Keyring["DPAPI CurrentUser keyring"]
+    Core --> MasterPassword["Optional master password wrap"]
     Core --> Recovery["Recovery Kit service"]
+    Core --> Files["Encrypted file attachments"]
     Recovery --> Kit["Passphrase-protected Recovery Kit file"]
 ```
 
@@ -69,12 +74,19 @@ mindmap
       Copy username
       Copy password
       Password generator
+    Files
+      Import file
+      Export file
+      Delete file
     Security
       Windows Hello consent
       Password fallback
       DPAPI keyring
+      Optional master password
       AES-GCM encryption
       Clipboard auto-clear
+      Auto-lock
+      Sensitive action verification
     Recovery
       Export Recovery Kit
       Import Recovery Kit
@@ -109,12 +121,14 @@ flowchart TB
         Cipher["AesGcmVaultCipher"]
         KeyStore["WindowsProtectedKeyStore"]
         RecoveryService["RecoveryKitService"]
+        FileAttachments["Vault file attachments"]
     end
 
     subgraph Disk["Local disk"]
         Database["lockerit.db"]
         KeyFile["keyring.bin or *.keyring.bin"]
         RecoveryFile["*.lockerit-recovery.json"]
+        ExportedFile["User-selected exported file"]
     end
 
     MainWindow --> Vault
@@ -124,10 +138,13 @@ flowchart TB
     Vault --> Repository
     Vault --> KeyStore
     Vault --> RecoveryService
+    Vault --> FileAttachments
     Repository --> Cipher
     Repository --> Database
     KeyStore --> KeyFile
     RecoveryService --> RecoveryFile
+    FileAttachments --> Repository
+    FileAttachments --> ExportedFile
 ```
 
 The WPF app owns interaction and state. The core library owns encryption, storage, recovery, and Windows account key handling. SQLite is treated as a durable encrypted payload store, not as the security boundary.
@@ -152,7 +169,9 @@ For custom database paths, the keyring is stored beside the selected database us
 <database-name>.keyring.bin
 ```
 
-Password entries are serialized as JSON, encrypted with AES-256-GCM, and only then written to SQLite. The database stores item ID, item kind, and encrypted payload. The keyring is protected with `DataProtectionScope.CurrentUser`, so another Windows profile cannot unprotect it directly.
+Password entries and file attachment payloads are serialized as JSON, encrypted with AES-256-GCM, and only then written to SQLite. The database stores item ID, item kind, and encrypted payload. The keyring is protected with `DataProtectionScope.CurrentUser`, so another Windows profile cannot unprotect it directly.
+
+LockerIt can also add a master password to the local keyring. In that mode, Windows authorization is still required, but the DPAPI-unsealed keyring contains an AES-GCM wrapped vault key that also requires the LockerIt master password. This is a local second factor, not a cloud account or remote escrow system.
 
 ## Recovery Model
 
@@ -175,12 +194,15 @@ sequenceDiagram
     Target->>Vault: Unlock encrypted payloads
 ```
 
-The Recovery Kit uses PBKDF2-HMAC-SHA256 with a 256-bit random salt, 600,000 iterations, and AES-256-GCM authenticated encryption. If a vault database already exists but the local keyring is missing, LockerIt refuses to generate a new random key and asks the user to import a Recovery Kit instead.
+The Recovery Kit uses PBKDF2-HMAC-SHA256 with a 256-bit random salt, 600,000 iterations, and AES-256-GCM authenticated encryption. It can store a non-secret passphrase hint to help the user remember the recovery passphrase. If a vault database already exists but the local keyring is missing, LockerIt refuses to generate a new random key and asks the user to import a Recovery Kit instead.
 
 ## Repository Layout
 
 ```text
 .
+|-- .github/
+|   `-- workflows/
+|       `-- build.yml
 |-- .docs/
 |   |-- README.md
 |   |-- architecture.md
@@ -195,6 +217,8 @@ The Recovery Kit uses PBKDF2-HMAC-SHA256 with a 256-bit random salt, 600,000 ite
 |   `-- Lockerit.Core.SmokeTests/
 |-- Lockerit.slnx
 |-- Directory.Build.props
+|-- CONTRIBUTING.md
+|-- LICENSE
 |-- NuGet.Config
 |-- global.json
 `-- README.md
@@ -231,11 +255,16 @@ dotnet run --project tests/Lockerit.Core.SmokeTests/Lockerit.Core.SmokeTests.csp
 The smoke test validates:
 
 - password CRUD;
+- password list summaries without decrypted password or notes;
+- encrypted file attachment import/export core behavior;
 - no plaintext password bytes in SQLite database or WAL;
+- no plaintext file bytes in SQLite database or WAL;
 - Recovery Kit export;
 - no plaintext password bytes in the Recovery Kit;
+- Recovery Kit passphrase hint metadata;
 - failed import with a wrong passphrase;
 - successful import after deleting the local keyring;
+- master password protected keyring unlock behavior;
 - recovered vault unlock.
 
 ## Supply-Chain Posture
@@ -247,11 +276,17 @@ The dependency set is intentionally small:
 
 `NuGet.Config` maps package restore to `nuget.org`, and `Directory.Build.props` enables package lock files. The repository ignores local databases, keyrings, Recovery Kits, settings, environment files, certificates, private keys, and build artifacts.
 
-## Current Limitations
+## Risk Posture
 
-- Malware already running as the same unlocked Windows user can still interact with the app or ask Windows to decrypt user-scoped secrets.
-- The recovery passphrase cannot be recovered by LockerIt if forgotten.
-- There is no separate master password option yet.
-- There is no hardware-backed key option yet.
-- Encrypted file attachments are not implemented yet.
-- Decrypted strings can exist in UI memory while the app is open.
+| Previous limitation | Current correction or mitigation | Residual risk |
+| --- | --- | --- |
+| Malware already running as the same unlocked Windows user can interact with the app or user-scoped APIs. | Sensitive actions require Windows authorization, the app auto-locks after 15 minutes of inactivity, and an optional master password adds a local second factor. | Malware with the same user context is still outside the hard boundary of a local desktop app. |
+| Recovery passphrase cannot be recovered if forgotten. | Recovery Kits can include a non-secret hint, and an already-unlocked source device can export a new kit. | LockerIt still cannot recover a forgotten passphrase without an unlocked source or another valid Recovery Kit. That is intentional to avoid escrow. |
+| No separate master password option. | Implemented optional DPAPI plus master password keyring mode. | Losing both master password and Recovery Kit blocks local unlock. |
+| No hardware-backed key option. | Windows Hello/PIN/biometric user presence is used for unlock and sensitive actions when available. | Direct TPM-held vault key storage is not implemented yet. |
+| Encrypted file attachments are not implemented. | Implemented encrypted file attachment import/export/delete using the same AES-GCM vault payload model. | Large-file streaming and attachment previews are not implemented yet. |
+| Decrypted strings can exist in UI memory while the app is open. | Password and file lists use summaries without decrypted passwords, notes, or file bytes; full secrets are loaded only for specific actions; modal fields are cleared on close/lock. | WPF strings and password fields can still exist in process memory during active use. |
+
+## License
+
+LockerIt is licensed under the [MIT License](LICENSE).

@@ -5,6 +5,7 @@ LockerIt protects local vault data by separating three secrets:
 1. The vault database, which stores encrypted payloads.
 2. The vault master key, which decrypts those payloads.
 3. The recovery passphrase, which can unwrap a portable copy of the master key.
+4. The optional master password, which adds a local second factor to the DPAPI keyring.
 
 The database can move. The local DPAPI keyring should not move. The Recovery Kit can move, but it is useless without the recovery passphrase.
 
@@ -26,13 +27,18 @@ flowchart TB
     Dpapi["Windows DPAPI CurrentUser"]
     Keyring["Local keyring file"]
     Passphrase["Recovery passphrase"]
+    MasterPassword["Optional master password"]
     Kdf["PBKDF2-HMAC-SHA256"]
     Kit["Recovery Kit"]
+    V2Wrap["DPAPI + master password keyring v2"]
 
     Master --> Payload
     Payload --> Db
     Master --> Dpapi
     Dpapi --> Keyring
+    Master --> V2Wrap
+    MasterPassword --> V2Wrap
+    V2Wrap --> Keyring
     Passphrase --> Kdf
     Kdf --> Kit
     Master --> Kit
@@ -45,6 +51,7 @@ flowchart TB
 | Vault master key | 256-bit random key generated with `RandomNumberGenerator`. |
 | Vault item encryption | AES-256-GCM with authenticated additional data per purpose. |
 | Local keyring protection | Windows DPAPI with `DataProtectionScope.CurrentUser`. |
+| Optional master password keyring | DPAPI-protected v2 keyring whose inner vault key is wrapped with PBKDF2-HMAC-SHA256 plus AES-256-GCM. |
 | Recovery wrapping key | PBKDF2-HMAC-SHA256, 256-bit random salt, 600,000 iterations. |
 | Recovery Kit encryption | AES-256-GCM over the vault master key. |
 | Recovery Kit fingerprint | HMAC-SHA256 over a fixed purpose string using the recovered vault key. |
@@ -57,6 +64,7 @@ flowchart LR
         UI["WPF UI memory"]
         Core["Core vault objects"]
         Clipboard["Clipboard temporary copy"]
+        SelectedSecret["Selected full secret only during action"]
     end
 
     subgraph LocalProfile["Current Windows profile"]
@@ -67,6 +75,7 @@ flowchart LR
     subgraph PortableFiles["Portable files"]
         Db["Encrypted SQLite database"]
         Kit["Encrypted Recovery Kit"]
+        ExportedFile["User-selected exported file"]
     end
 
     UI --> Core
@@ -75,9 +84,11 @@ flowchart LR
     Core --> Db
     Core --> Kit
     UI --> Clipboard
+    UI --> SelectedSecret
+    Core --> ExportedFile
 ```
 
-While unlocked, the app necessarily holds decrypted values in memory to display and copy them. The clipboard auto-clear reduces exposure after copy, but it is not a hard security boundary because other processes can observe the clipboard.
+While unlocked, the app necessarily holds decrypted values in memory to display, copy, edit, or export them. LockerIt reduces exposure by using password and file summaries in list views, loading full secrets only for selected actions, clearing modal fields on close/lock, auto-clearing clipboard values, requiring Windows authorization for sensitive actions, and auto-locking after 15 minutes of inactivity. These are exposure reductions, not a hard boundary against malware running as the same Windows user.
 
 ## Threat Model
 
@@ -86,9 +97,10 @@ While unlocked, the app necessarily holds decrypted values in memory to display 
 | Stolen `.db` file | Password payloads remain encrypted without the vault master key. |
 | Stolen DPAPI keyring from another Windows account | Not directly useful because DPAPI CurrentUser binds unprotect to the original profile. |
 | Stolen Recovery Kit without passphrase | Not directly useful because the master key is wrapped by passphrase-derived AES-GCM. |
+| Stolen Recovery Kit with forgotten passphrase | A non-secret hint can help the user remember, but LockerIt cannot recover the passphrase without an unlocked source device. |
 | Missing keyring next to existing database | LockerIt refuses to create a new key and requires Recovery Kit import. |
-| Malware running as same unlocked user | Out of current hard boundary; malware can interact with user-scoped APIs and process memory. |
-| Forgotten recovery passphrase | Not recoverable by design. |
+| Malware running as same unlocked user | Mitigated with user-presence prompts, auto-lock, optional master password, and reduced decrypted list memory; still outside the hard boundary. |
+| Forgotten master password | Recovery Kit import or an already-unlocked source device is required. |
 | Supply-chain package compromise | Mitigated by small dependency set, lock files, and explicit NuGet source mapping. |
 
 ## Non-Goals For Current Phase
@@ -97,8 +109,19 @@ While unlocked, the app necessarily holds decrypted values in memory to display 
 - Remote identity provider.
 - Multi-user vault sharing.
 - Enterprise key escrow.
-- Hardware-backed key storage.
+- Direct TPM-held vault key storage.
 - Full memory hardening against local malware.
+
+## Limitation Corrections And Residual Risk
+
+| Previous limitation | Correction or mitigation | Residual risk |
+| --- | --- | --- |
+| Malware in the same unlocked user session | Windows authorization is required before sensitive actions, sessions auto-lock after 15 minutes, optional master password adds a second local factor. | Same-user malware can still interact with process memory and user-scoped APIs. |
+| Forgotten recovery passphrase | Recovery Kit can carry a non-secret hint, and an unlocked source device can export a new kit. | No escrow exists by design. |
+| No separate master password | Implemented DPAPI plus master password keyring mode. | Losing both master password and Recovery Kit blocks unlock. |
+| No hardware-backed key option | Windows Hello/PIN/biometric user presence is used when available. | The vault master key is not directly stored as a TPM-held key. |
+| No encrypted file attachments | Implemented typed encrypted file attachment payloads. | Large-file streaming is not implemented. |
+| Decrypted strings in UI memory | Lists store summaries without password, notes, or file bytes; full payloads are loaded only by ID for action. | Active edit/copy/export still requires plaintext in process memory briefly. |
 
 ## Sensitive Files
 

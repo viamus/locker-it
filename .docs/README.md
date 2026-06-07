@@ -14,6 +14,12 @@ The root [README.md](../README.md) is the public entry point. These documents go
 | [recovery.md](recovery.md) | Describes Recovery Kit export, import, local keyring refresh, and cross-device behavior. |
 | [tooling.md](tooling.md) | Lists developer commands, GitHub CLI metadata commands, package controls, and validation steps. |
 
+Repository-level process files live outside this folder:
+
+- [CONTRIBUTING.md](../CONTRIBUTING.md)
+- [LICENSE](../LICENSE)
+- [.github/workflows/build.yml](../.github/workflows/build.yml)
+
 ## Documentation Principles
 
 - Keep user-facing language clear enough for a non-security specialist.
