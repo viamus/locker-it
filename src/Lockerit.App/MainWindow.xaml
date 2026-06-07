@@ -642,7 +642,8 @@
                             CornerRadius="8"
                             Padding="30">
                         <Grid>
-                            <StackPanel x:Name="LoginUnlockPanel">
+                            <StackPanel x:Name="LoginUnlockPanel"
+                                        VerticalAlignment="Center">
                             <TextBlock Text="Unlock your vault"
                                        FontSize="28"
                                        FontWeight="SemiBold" />
@@ -750,6 +751,7 @@
                             </StackPanel>
 
                             <StackPanel x:Name="LoginTotpPanel"
+                                        VerticalAlignment="Center"
                                         Visibility="Collapsed">
                             <TextBlock Text="AuthPolicy check"
                                        Style="{StaticResource CaptionText}" />
